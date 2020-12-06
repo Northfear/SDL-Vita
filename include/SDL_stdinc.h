@@ -96,6 +96,10 @@
 # endif
 #endif
 
+#ifdef __VITA__
+#include "../src/video/arm/memcpy_neon.h"
+#endif
+
 /** The number of elements in an array */
 #define SDL_arraysize(array)	(sizeof(array)/sizeof(array[0]))
 #define SDL_TABLESIZE(table)	SDL_arraysize(table)
@@ -288,6 +292,10 @@ do {						\
 		} while ( --_n );		\
 	}					\
 } while(0)
+#endif
+
+#ifdef __VITA__
+#define SDL_memcpy      memcpy_neon
 #endif
 
 /* We can count on memcpy existing on Mac OS X and being well-tuned. */

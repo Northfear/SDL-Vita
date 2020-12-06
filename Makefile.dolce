@@ -1,0 +1,54 @@
+# Makefile to build the SDL library
+
+INCLUDE = -I./include
+CFLAGS  = -Ofast -mcpu=cortex-a9 -mfpu=neon -ftree-vectorize -DSDL_ARM_NEON_BLITTERS=1 -DSDL_ARM_SIMD_BLITTERS=1 -D__VITA__ $(INCLUDE) -lSceLibc_stub -Werror
+
+CC	= arm-dolce-eabi-gcc
+AR	= arm-dolce-eabi-ar
+RANLIB	= arm-dolce-eabi-ranlib
+
+CONFIG_H = include/SDL_config.h
+TARGET  = libSDL.a
+SOURCES = \
+	src/*.c \
+	src/audio/*.c \
+	src/cdrom/*.c \
+	src/cpuinfo/*.c \
+	src/events/*.c \
+	src/file/*.c \
+	src/joystick/*.c \
+	src/stdlib/*.c \
+	src/thread/*.c \
+	src/timer/*.c \
+	src/video/*.c \
+	src/audio/psp2/*.c \
+	src/video/psp2/*.c \
+	src/joystick/psp2/*.c \
+	src/cdrom/dummy/*.c \
+	src/thread/psp2/*.c \
+	src/timer/psp2/*.c \
+	src/loadso/dummy/*.c \
+	src/video/arm/*.S \
+
+OBJECTS = $(shell echo $(SOURCES) | sed -e 's,\.c,\.o,g; s,\.S,\.o,g')
+
+#all: $(TARGET)
+#	make -f Makefile.dolce-test clean
+#	make -f Makefile.dolce-test
+
+$(TARGET): $(CONFIG_H) $(OBJECTS)
+	$(AR) crv $@ $^
+	$(RANLIB) $@
+
+$(CONFIG_H):
+	cp $(CONFIG_H).default $(CONFIG_H)
+
+clean:
+	rm -f $(TARGET) $(OBJECTS)
+#	make -f Makefile.dolce-test clean
+
+install: $(TARGET)
+	@cp  $(TARGET) $(DOLCESDK)/arm-dolce-eabi/lib
+	@mkdir -p "$(DOLCESDK)/arm-dolce-eabi/include/SDL"
+	@cp include/*.h "$(DOLCESDK)/arm-dolce-eabi/include/SDL"
+	@echo "Installed!"

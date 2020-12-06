@@ -480,6 +480,18 @@ static __inline__ int CPU_haveARMNEON(void)
 	return 0;
 }
 
+#elif defined(__VITA__)
+
+static __inline__ int CPU_haveARMSIMD(void)
+{
+	return 1;
+}
+
+static __inline__ int CPU_haveARMNEON(void)
+{
+	return 1;
+}
+
 #else
 
 static __inline__ int CPU_haveARMSIMD(void)

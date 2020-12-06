@@ -36,6 +36,7 @@
 
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/audioout.h>
+#include "malloc.h"
 
 /* The tag name used by DUMMY audio */
 #define PSP2AUD_DRIVER_NAME         "psp2"
@@ -152,58 +153,57 @@ static void PSP2AUD_CloseAudio(_THIS)
 
 static int PSP2AUD_OpenAudio(_THIS, SDL_AudioSpec *spec)
 {
-	int format, mixlen, i, port = SCE_AUDIO_OUT_PORT_TYPE_MAIN;
+    int format, mixlen, i, port = SCE_AUDIO_OUT_PORT_TYPE_MAIN;
 
-	/* The sample count must be a multiple of 64. */
-    this->spec.samples = SCE_AUDIO_SAMPLE_ALIGN(this->spec.samples);
-	this->spec.freq = spec->freq;
-
-    /* Update the fragment size as size in bytes. */
-	/*  SDL_CalculateAudioSpec(this->spec); MOD */
-    switch (this->spec.format) {
-    case AUDIO_U8:
-        this->spec.silence = 0x80;
-        break;
-    default:
-        this->spec.silence = 0x00;
-        break;
+    switch (spec->format & 0xff) {
+        case 8:
+        case 16:
+            spec->format = AUDIO_S16LSB;
+            break;
+        default:
+            SDL_SetError("Unsupported audio format");
+            return -1;
     }
-    this->spec.size = SDL_AUDIO_BITSIZE(this->spec.format) / 8;
-    this->spec.size *= this->spec.channels;
-    this->spec.size *= this->spec.samples;
+
+    /* The sample count must be a multiple of 64. */
+    spec->samples = SCE_AUDIO_SAMPLE_ALIGN(spec->samples);
+
+    SDL_CalculateAudioSpec(spec);
 
     /* Allocate the mixing buffer.  Its size and starting address must
        be a multiple of 64 bytes.  Our sample count is already a multiple of
        64, so spec->size should be a multiple of 64 as well. */
-    mixlen = this->spec.size * NUM_BUFFERS;
+
+    mixlen = spec->size * NUM_BUFFERS;
     this->hidden->rawbuf = (Uint8 *) memalign(64, mixlen);
     if (this->hidden->rawbuf == NULL) {
-		SDL_SetError("Couldn't allocate mixing buffer");
-		return -1;
+        SDL_SetError("Couldn't allocate mixing buffer");
+        return -1;
     }
 
     /* Setup the hardware channel. */
-    if (this->spec.channels == 1) {
+    if (spec->channels == 1) {
         format = SCE_AUDIO_OUT_MODE_MONO;
     } else {
         format = SCE_AUDIO_OUT_MODE_STEREO;
     }
 
-    if(this->spec.freq < 48000) {
-		port = SCE_AUDIO_OUT_PORT_TYPE_BGM;
-	}
 
-    this->hidden->channel = sceAudioOutOpenPort(port, this->spec.samples, this->spec.freq, format);
+    if(spec->freq < 48000) {
+        port = SCE_AUDIO_OUT_PORT_TYPE_BGM;
+    }
+
+    this->hidden->channel = sceAudioOutOpenPort(port, spec->samples, spec->freq, format);
     if (this->hidden->channel < 0) {
         free(this->hidden->rawbuf);
         this->hidden->rawbuf = NULL;
-		SDL_SetError("Couldn't reserve hardware channel");
-		return -1;
+        SDL_SetError("Couldn't reserve hardware channel");
+        return -1;
     }
 
-    memset(this->hidden->rawbuf, 0, mixlen);
+    SDL_memset(this->hidden->rawbuf, 0, mixlen);
     for (i = 0; i < NUM_BUFFERS; i++) {
-        this->hidden->mixbufs[i] = &this->hidden->rawbuf[i * this->spec.size];
+        this->hidden->mixbufs[i] = &this->hidden->rawbuf[i * spec->size];
     }
 
     this->hidden->next_buffer = 0;

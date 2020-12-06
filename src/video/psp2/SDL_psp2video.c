@@ -47,13 +47,16 @@
 #include "SDL_psp2mouse_c.h"
 #include "SDL_psp2keyboard_c.h"
 
+#include "SDL_render_vita_gxm_tools.h"
+#include "SDL_render_vita_gxm_types.h"
+
 #define PSP2VID_DRIVER_NAME "psp2"
 
 #define SCREEN_W 960
 #define SCREEN_H 544
 
 typedef struct private_hwdata {
-	vita2d_texture *texture;
+	gxm_texture *texture;
 	SDL_Rect dst;
 } private_hwdata;
 
@@ -140,8 +143,11 @@ static SDL_VideoDevice *PSP2_CreateDevice(int devindex)
 
 int PSP2_VideoInit(_THIS, SDL_PixelFormat *vformat)
 {
-	vita2d_init();
-	vita2d_set_vblank_wait(vsync);
+	if (gxm_init() != 0)
+    {
+        return -1;
+    }
+	gxm_set_vblank_wait(vsync);
 
 	vformat->BitsPerPixel = 16;
 	vformat->BytesPerPixel = 2;
@@ -173,7 +179,6 @@ SDL_Surface *PSP2_SetVideoMode(_THIS, SDL_Surface *current,
 			}
 		break;
 
-		/* // TODO: crash
 		case 32:
 			if (!SDL_ReallocFormat(current, 32, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000))
 			{
@@ -181,7 +186,6 @@ SDL_Surface *PSP2_SetVideoMode(_THIS, SDL_Surface *current,
 				return(NULL);
 			}
 		break;
-		*/
 
 		default:
 			if (!SDL_ReallocFormat(current, 16, 0xF800, 0x07E0, 0x001F, 0x0000))
@@ -214,12 +218,11 @@ SDL_Rect **PSP2_ListModes(_THIS, SDL_PixelFormat *format, Uint32 flags)
 	};
 	SDL_Rect **modes = PSP2_modes;
 
-	// support only 16/24 bits for now
 	switch(format->BitsPerPixel)
 	{
 		case 16:
 		case 24:
-		//case 32: // TODO
+		case 32:
 		return modes;
 
 		default:
@@ -247,29 +250,33 @@ static int PSP2_AllocHWSurface(_THIS, SDL_Surface *surface)
 	{
 		case 16:
 			surface->hwdata->texture =
-				vita2d_create_empty_texture_format(surface->w, surface->h, SCE_GXM_TEXTURE_FORMAT_R5G6B5);
+				create_gxm_texture(surface->w, surface->h, SCE_GXM_TEXTURE_FORMAT_R5G6B5, 0);
 		break;
 
 		case 24:
 			surface->hwdata->texture =
-				vita2d_create_empty_texture_format(surface->w, surface->h, SCE_GXM_TEXTURE_FORMAT_U8U8U8_RGB);
+				create_gxm_texture(surface->w, surface->h, SCE_GXM_TEXTURE_FORMAT_U8U8U8_RGB, 0);
 		break;
 
-		/* // TODO: crash
 		case 32:
 			surface->hwdata->texture =
-				vita2d_create_empty_texture_format(surface->w, surface->h, SCE_GXM_COLOR_FORMAT_A8B8G8R8);
+				create_gxm_texture(surface->w, surface->h, SCE_GXM_COLOR_FORMAT_A8B8G8R8, 0);
 		break;
-		*/
 
 		default:
 			SDL_SetError("unsupported BitsPerPixel: %i\n", surface->format->BitsPerPixel);
 		return -1;
 	}
 
-	surface->pixels = vita2d_texture_get_datap(surface->hwdata->texture);
-	surface->pitch = vita2d_texture_get_stride(surface->hwdata->texture);
+	surface->pixels = gxm_texture_get_datap(surface->hwdata->texture);
+	surface->pitch = gxm_texture_get_stride(surface->hwdata->texture);
 	surface->flags |= SDL_HWSURFACE;
+
+	gxm_init_texture_scale(
+		surface->hwdata->texture,
+		surface->hwdata->dst.x, surface->hwdata->dst.y,
+		(float)surface->hwdata->dst.w/(float)surface->w,
+		(float)surface->hwdata->dst.h/(float)surface->h);
 
 	return(0);
 }
@@ -278,8 +285,8 @@ static void PSP2_FreeHWSurface(_THIS, SDL_Surface *surface)
 {
 	if (surface->hwdata != NULL)
 	{
-		vita2d_wait_rendering_done();
-		vita2d_free_texture(surface->hwdata->texture);
+		gxm_wait_rendering_done();
+		free_gxm_texture(surface->hwdata->texture);
 		SDL_free(surface->hwdata);
 		surface->hwdata = NULL;
 		surface->pixels = NULL;
@@ -288,20 +295,16 @@ static void PSP2_FreeHWSurface(_THIS, SDL_Surface *surface)
 
 static int PSP2_FlipHWSurface(_THIS, SDL_Surface *surface)
 {
-	vita2d_start_drawing();
-
-	vita2d_draw_texture_scale(
-		surface->hwdata->texture,
-		surface->hwdata->dst.x, surface->hwdata->dst.y,
-		(float)surface->hwdata->dst.w/(float)surface->w,
-		(float)surface->hwdata->dst.h/(float)surface->h);
-
-	vita2d_end_drawing();
+	gxm_start_drawing();
+	gxm_draw_texture(surface->hwdata->texture);
+	gxm_end_drawing();
+/*
 	if(vsync == 1)
 	{
-		vita2d_wait_rendering_done();
+		gxm_wait_rendering_done();
 	}
-	vita2d_swap_buffers();
+*/
+	gxm_swap_buffers();
 }
 
 // custom psp2 function for centering/scaling main screen surface (texture)
@@ -316,6 +319,12 @@ void SDL_SetVideoModeScaling(int x, int y, float w, float h)
 		surface->hwdata->dst.w = w;
 		surface->hwdata->dst.h = h;
 	}
+
+	gxm_init_texture_scale(
+		surface->hwdata->texture,
+		surface->hwdata->dst.x, surface->hwdata->dst.y,
+		(float)surface->hwdata->dst.w/(float)surface->w,
+		(float)surface->hwdata->dst.h/(float)surface->h);
 }
 
 // custom psp2 function for setting the texture filter to nearest or bilinear
@@ -331,13 +340,13 @@ void SDL_SetVideoModeBilinear(int enable_bilinear)
 			//for magnification
 			//(first one is minimization filter,
 			//second one is magnification filter)
-			vita2d_texture_set_filters(surface->hwdata->texture,
+			gxm_texture_set_filters(surface->hwdata->texture,
 				SCE_GXM_TEXTURE_FILTER_POINT,
 				SCE_GXM_TEXTURE_FILTER_LINEAR);
 		}
 		else
 		{
-			vita2d_texture_set_filters(surface->hwdata->texture,
+			gxm_texture_set_filters(surface->hwdata->texture,
 				SCE_GXM_TEXTURE_FILTER_POINT,
 				SCE_GXM_TEXTURE_FILTER_POINT);
 		}
@@ -348,8 +357,9 @@ void SDL_SetVideoModeBilinear(int enable_bilinear)
 void SDL_SetVideoModeSync(int enable_vsync)
 {
 	vsync = enable_vsync;
-	vita2d_set_vblank_wait(vsync);
+	gxm_set_vblank_wait(vsync);
 }
+
 
 static int PSP2_LockHWSurface(_THIS, SDL_Surface *surface)
 {
@@ -377,7 +387,7 @@ void PSP2_VideoQuit(_THIS)
 	{
 		PSP2_FreeHWSurface(this, this->screen);
 	}
-	vita2d_fini();
+	gxm_finish();
 }
 
 VideoBootStrap PSP2_bootstrap = {
