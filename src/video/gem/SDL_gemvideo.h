@@ -36,7 +36,8 @@ struct WMcursor {
 #define _THIS	SDL_VideoDevice *this
 
 /* Functions prototypes */
-void GEM_wind_redraw(_THIS, int winhandle, short *inside);
+void GEM_wind_redraw(_THIS, int winhandle, short *inside, SDL_bool pad_only);
+void GEM_align_work_area(_THIS, short windowid, SDL_bool clear_pads);
 
 /* Private display data */
 
@@ -75,12 +76,15 @@ struct SDL_PrivateVideoData {
 	short desk_w, desk_h;
 	short win_handle;			/* Our window handle */
 	int window_type;			/* Window type */
+	short work_x, work_y;		/* Window work area x,y,w,h */
+	short work_w, work_h;
 	const char *title_name;		/* Window title */
 	const char *icon_name;		/* Icon title */
 	short version;				/* AES version */
 	short wfeatures;			/* AES window features */
 	SDL_bool refresh_name;		/* Change window title ? */
 	SDL_bool window_fulled;		/* Window maximized ? */
+	SDL_bool iconified;			/* Window iconified ? */
 	SDL_bool mouse_relative;	/* Report relative mouse movement */
 	SDL_bool locked;			/* AES locked for fullscreen ? */
 	SDL_bool lock_redraw;		/* Prevent redraw till buffers are setup */
@@ -89,6 +93,7 @@ struct SDL_PrivateVideoData {
 	void *menubar;				/* Menu bar save buffer when going fullscreen */
 	SDL_bool use_dev_mouse;		/* Use /dev/mouse ? */
 	WMcursor *cursor;			/* To restore cursor when leaving/entering window */
+	WMcursor *prev_cursor;		/* Previous cursor */
 
 	SDL_bool fullscreen;		/* Fullscreen or windowed mode ? */
 	SDL_Rect *SDL_modelist[SDL_NUMMODES+1];	/* Mode list */
@@ -115,19 +120,24 @@ struct SDL_PrivateVideoData {
 #define VDI_screensize		(this->hidden->screensize)
 #define VDI_dst_mfdb		(this->hidden->dst_mfdb)
 
-#define GEM_ap_id		(this->hidden->ap_id)
+#define GEM_ap_id			(this->hidden->ap_id)
 #define GEM_desk_x			(this->hidden->desk_x)
 #define GEM_desk_y			(this->hidden->desk_y)
 #define GEM_desk_w			(this->hidden->desk_w)
 #define GEM_desk_h			(this->hidden->desk_h)
 #define GEM_handle			(this->hidden->win_handle)
 #define GEM_win_type		(this->hidden->window_type)
+#define GEM_work_x			(this->hidden->work_x)
+#define GEM_work_y			(this->hidden->work_y)
+#define GEM_work_w			(this->hidden->work_w)
+#define GEM_work_h			(this->hidden->work_h)
 #define GEM_title_name		(this->hidden->title_name)
 #define GEM_icon_name		(this->hidden->icon_name)
 #define GEM_refresh_name	(this->hidden->refresh_name)
 #define GEM_version			(this->hidden->version)
 #define GEM_wfeatures		(this->hidden->wfeatures)
 #define GEM_win_fulled		(this->hidden->window_fulled)
+#define GEM_iconified		(this->hidden->iconified)
 #define GEM_mouse_relative	(this->hidden->mouse_relative)
 #define GEM_locked			(this->hidden->locked)
 #define GEM_lock_redraw		(this->hidden->lock_redraw)
@@ -139,6 +149,7 @@ struct SDL_PrivateVideoData {
 #define GEM_menubar			(this->hidden->menubar)
 #define GEM_usedevmouse		(this->hidden->use_dev_mouse)
 #define GEM_cursor			(this->hidden->cursor)
+#define GEM_prev_cursor		(this->hidden->prev_cursor)
 
 #define GEM_buffer1			(this->hidden->buffer1)
 #define GEM_buffer2			(this->hidden->buffer2)

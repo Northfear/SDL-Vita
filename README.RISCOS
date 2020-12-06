@@ -81,9 +81,9 @@ Current level of implementation
 The following list is an overview of how much of the SDL is implemented. The areas match the main areas of the SDL.
 
 video - Mostly done. Doesn't cover gamma, YUV-overlay or OpenGL.
-Window Manager - Mostly done. SetIcon/IconifyWindow not implemented.
+Window Manager - Mostly done. SetIcon not implemented.
 Events - Mostly done. Resize and some joystick events missing.
-Joystick - Currently assumes a single joystick with 4 buttons.
+Joystick - Currently assumes a single joystick with 8 buttons.
 Audio - Done
 CDROM - Not implemented.
 Threads - Done
@@ -99,7 +99,7 @@ This section contains additional notes on some specific commands.
 SDL_SetVideoMode
   On RISC OS a fullscreen mode directly accesses the screen. This can be modified by the environmental variable (SDL$<appname>$BackBuffer) or by using the SDL_SWSURFACE flag to write to an offscreen buffer that is updated using SDL_UpdateRects.
   Open GL is not supported so SDL_OPENGL and SDL_OPENGLBLIT flags fail.
-  SDL_RESIZEABLE and SDL_NOFRAME flags are not supported.
+  SDL_RESIZEABLE flag is not supported.
 
 SDL_SetColors
   In a wimp mode the screen colours are not changed for a hardware palette instead the RISC OS sprite colour mapping is used to get the best matching colours.
@@ -115,7 +115,7 @@ SDL_EnableUNICODE
    Unicode translation used here is only really accurate for 7 bit characters.
 
 SDL_NumJoysticks/JoystickName etc.
-   Hardcoded to expect only 1 joystick with 4 buttons if the Joystick module is loaded.
+   Hardcoded to expect only 1 joystick with 8 buttons if the Joystick module is loaded.
 
 SDL_GetTicks
    Timer used has only a centisecond accuracy. This applies to other time related functions.

@@ -44,6 +44,15 @@
 #include "kernel.h"
 #include "swis.h"
 
+#if !SDL_THREADS_DISABLED
+#include <pthread.h>
+#endif
+
+#if SDL_THREADS_DISABLED
+/* Timer running function */
+extern void RISCOS_CheckTimer();
+#endif
+
 /* The translation table from a RISC OS internal key numbers to a SDL keysym */
 static SDLKey RO_keymap[SDLK_LAST];
 
@@ -63,26 +72,20 @@ static SDLKey RO_keymap[SDLK_LAST];
 #define ROKEY_NONE 255
 
 /* Id of last key in keyboard */
-#define ROKEY_LAST_KEY  124
+#define ROKEY_LAST_KEY  127
 
 /* Size of array for all keys */
-#define ROKEYBD_ARRAYSIZE 125
+#define ROKEYBD_ARRAYSIZE 128
 
 static char RO_pressed[ROKEYBD_ARRAYSIZE];
 
 static SDL_keysym *TranslateKey(int intkey, SDL_keysym *keysym, int pressed);
 
-void RISCOS_PollMouse(_THIS);
-void RISCOS_PollKeyboard();
+static void RISCOS_PollMouse(_THIS);
+static void RISCOS_PollMouseHelper(_THIS, int fullscreen);
 
-void RISCOS_PollMouseHelper(_THIS, int fullscreen);
-
-#if SDL_THREADS_DISABLED
-extern void DRenderer_FillBuffers();
-
-/* Timer running function */
-extern void RISCOS_CheckTimer();
-
+#if !SDL_THREAD_DISABLED
+extern int riscos_using_threads;
 #endif
 
 void FULLSCREEN_PumpEvents(_THIS)
@@ -91,8 +94,15 @@ void FULLSCREEN_PumpEvents(_THIS)
 	RISCOS_PollKeyboard();
 	RISCOS_PollMouse(this);
 #if SDL_THREADS_DISABLED
-//	DRenderer_FillBuffers();
 	if (SDL_timer_running) RISCOS_CheckTimer();
+#else
+	/* Stop thread starvation, which will occur if the main loop
+         doesn't call SDL_Delay */
+	if (riscos_using_threads)
+	{
+		pthread_yield();
+	}
+
 #endif
 }
 
@@ -210,6 +220,9 @@ void RISCOS_InitOSKeymap(_THIS)
   RO_keymap[122] = SDLK_KP4;
   RO_keymap[123] = SDLK_KP5;
   RO_keymap[124] = SDLK_KP2;
+  RO_keymap[125] = SDLK_LSUPER;
+  RO_keymap[126] = SDLK_RSUPER;
+  RO_keymap[127] = SDLK_MENU;
 
   SDL_memset(RO_pressed, 0, ROKEYBD_ARRAYSIZE);
 }
@@ -237,8 +250,6 @@ void RISCOS_PollMouse(_THIS)
    RISCOS_PollMouseHelper(this, 1);
 }
 
-extern int mouseInWindow;
-
 void WIMP_PollMouse(_THIS)
 {
    /* Only poll when mouse is over the window */
@@ -250,6 +261,10 @@ void WIMP_PollMouse(_THIS)
 /* Static variables so only changes are reported */
 static Sint16 last_x = -1, last_y = -1;
 static int last_buttons = 0;
+
+static inline void HandleMouseButton(int changed, int last, int mask, int button) {
+    if (changed & mask) SDL_PrivateMouseButton((last & mask) ? SDL_PRESSED : SDL_RELEASED, button, 0, 0);
+}
 
 /* Share routine between WIMP and FULLSCREEN for polling mouse and
    passing on events */
@@ -278,7 +293,7 @@ void RISCOS_PollMouseHelper(_THIS, int fullscreen)
           if (fullscreen)
           {
              topLeftX = 0;
-             topLeftY = (this->hidden->height << this->hidden->yeig) - 1;
+             topLeftY = this->hidden->screen_height << this->hidden->yeig;
           } else
           {
              int window_state[9];
@@ -289,16 +304,16 @@ void RISCOS_PollMouseHelper(_THIS, int fullscreen)
 		     _kernel_swi(Wimp_GetWindowState, &regs, &regs);
 
              topLeftX = window_state[1];
-             topLeftY = window_state[4];
+             topLeftY = window_state[4] - 2;
           }
 
-		  /* Convert co-ordinates to workspace */
-		  x = new_x - topLeftX;
+          /* Convert co-ordinates to workspace */
+          x = new_x - topLeftX;
           y = topLeftY - new_y; /* Y goes from top of window/screen */
 
-	 	  /* Convert OS units to pixels */
-	      x >>= this->hidden->xeig;
-		  y >>= this->hidden->yeig;
+          /* Convert OS units to pixels (with 90 DPI mapping from OS units to SDL pixels) */
+          x >>= 1;
+          y >>= 1;
 
           if (last_x != new_x || last_y != new_y)
           {
@@ -310,8 +325,8 @@ void RISCOS_PollMouseHelper(_THIS, int fullscreen)
                 if (centre_x != x || centre_y != y)
                 {
                    if (SDL_VideoSurface) SDL_PrivateMouseMotion(0,1,x - centre_x, y - centre_y);
-                   last_x = topLeftX + (centre_x << this->hidden->xeig);
-                   last_y = topLeftY - (centre_y << this->hidden->yeig);
+                   last_x = topLeftX + (centre_x << 1);
+                   last_y = topLeftY - (centre_y << 1);
 
                    /* Re-centre the mouse pointer, so we still get relative
                       movement when the mouse is at the edge of the window
@@ -326,9 +341,7 @@ void RISCOS_PollMouseHelper(_THIS, int fullscreen)
                       block[3] = last_y & 0xFF;
                       block[4] = (last_y >> 8) & 0xFF;
                        
-                      regs.r[0] = 21; /* OSWORD pointer stuff code */
-                      regs.r[1] = (int)block;
-                      _kernel_swi(OS_Word, &regs, &regs);
+                      _kernel_osword(21, (int *)block);
                	   }
                 }
              } else
@@ -343,9 +356,14 @@ void RISCOS_PollMouseHelper(_THIS, int fullscreen)
           {
              int changed = last_buttons ^ regs.r[2];
              last_buttons = regs.r[2];
-             if (changed & 4) SDL_PrivateMouseButton((last_buttons & 4) ? SDL_PRESSED : SDL_RELEASED, SDL_BUTTON_LEFT, 0, 0);
-             if (changed & 2) SDL_PrivateMouseButton((last_buttons & 2) ? SDL_PRESSED : SDL_RELEASED, SDL_BUTTON_MIDDLE, 0, 0);
-             if (changed & 1) SDL_PrivateMouseButton((last_buttons & 1) ? SDL_PRESSED : SDL_RELEASED, SDL_BUTTON_RIGHT, 0, 0);
+             HandleMouseButton(changed, last_buttons, 1, SDL_BUTTON_RIGHT);
+             HandleMouseButton(changed, last_buttons, 2, SDL_BUTTON_MIDDLE);
+             HandleMouseButton(changed, last_buttons, 4, SDL_BUTTON_LEFT);
+             HandleMouseButton(changed, last_buttons, 8, SDL_BUTTON_X1);
+             HandleMouseButton(changed, last_buttons, 16, SDL_BUTTON_X2);
+             HandleMouseButton(changed, last_buttons, 32, SDL_BUTTON_X2 + 1);
+             HandleMouseButton(changed, last_buttons, 64, SDL_BUTTON_X2 + 2);
+             HandleMouseButton(changed, last_buttons, 128, SDL_BUTTON_X2 + 3);
           }
        }
     }

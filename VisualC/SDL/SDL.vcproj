@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="9.00"
+	Version="8.00"
 	Name="SDL"
 	ProjectGUID="{81CE8DAF-EBB2-4761-8E45-B71ABCCA8C68}"
 	RootNamespace="SDL"
-	TargetFrameworkVersion="131072"
 	>
 	<Platforms>
 		<Platform
@@ -503,19 +502,19 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\src\video\Windx5\SDL_dx5events.c"
+			RelativePath="..\..\src\video\windx5\SDL_dx5events.c"
 			>
 		</File>
 		<File
-			RelativePath="..\..\src\video\Windx5\SDL_dx5events_c.h"
+			RelativePath="..\..\src\video\windx5\SDL_dx5events_c.h"
 			>
 		</File>
 		<File
-			RelativePath="..\..\src\video\Windx5\SDL_dx5video.c"
+			RelativePath="..\..\src\video\windx5\SDL_dx5video.c"
 			>
 		</File>
 		<File
-			RelativePath="..\..\src\video\Windx5\SDL_dx5video.h"
+			RelativePath="..\..\src\video\windx5\SDL_dx5video.h"
 			>
 		</File>
 		<File
@@ -823,7 +822,7 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\src\video\wincommon\Wmmsg.h"
+			RelativePath="..\..\src\video\wincommon\wmmsg.h"
 			>
 		</File>
 	</Files>

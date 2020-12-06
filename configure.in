@@ -17,9 +17,9 @@ dnl Set various version strings - taken gratefully from the GTk sources
 #
 SDL_MAJOR_VERSION=1
 SDL_MINOR_VERSION=2
-SDL_MICRO_VERSION=15
-SDL_INTERFACE_AGE=4
-SDL_BINARY_AGE=15
+SDL_MICRO_VERSION=16
+SDL_INTERFACE_AGE=5
+SDL_BINARY_AGE=16
 SDL_VERSION=$SDL_MAJOR_VERSION.$SDL_MINOR_VERSION.$SDL_MICRO_VERSION
 
 AC_SUBST(SDL_MAJOR_VERSION)
@@ -115,8 +115,8 @@ find_lib()
     else
         host_lib_path="/usr/$base_libdir /usr/local/$base_libdir"
     fi
-    for path in $gcc_bin_path $gcc_lib_path $env_lib_path $host_lib_path; do
-        lib=[`ls -- $path/$1 2>/dev/null | sort | sed 's/.*\/\(.*\)/\1/; q'`]
+    for path in $env_lib_path $gcc_bin_path $gcc_lib_path $host_lib_path; do
+        lib=[`ls -- $path/$1 2>/dev/null | sed -e '/\.so\..*\./d' -e 's,.*/,,' | sort | tail -1`]
         if test x$lib != x; then
             echo $lib
             return
@@ -844,36 +844,6 @@ AC_HELP_STRING([--enable-altivec], [use altivec assembly blitters on PPC [[defau
             ])
             AC_MSG_RESULT($have_gcc_altivec)
         fi
-
-        if test x$have_gcc_altivec = xno; then
-            AC_MSG_CHECKING(for Altivec with GCC altivec.h and -faltivec option)
-            altivec_CFLAGS="-faltivec"
-            CFLAGS="$save_CFLAGS $altivec_CFLAGS"
-            AC_TRY_COMPILE([
-            #include <altivec.h>
-            vector unsigned int vzero() {
-                return vec_splat_u32(0);
-            }
-            ],[
-            ],[
-            have_gcc_altivec=yes
-            have_altivec_h_hdr=yes
-            ])
-            AC_MSG_RESULT($have_gcc_altivec)
-        fi
-
-        if test x$have_gcc_altivec = xno; then
-            AC_MSG_CHECKING(for Altivec with GCC -faltivec option)
-            AC_TRY_COMPILE([
-            vector unsigned int vzero() {
-                return vec_splat_u32(0);
-            }
-            ],[
-            ],[
-            have_gcc_altivec=yes
-            ])
-            AC_MSG_RESULT($have_gcc_altivec)
-        fi
         CFLAGS="$save_CFLAGS"
 
         if test x$have_gcc_altivec = xyes; then
@@ -882,6 +852,117 @@ AC_HELP_STRING([--enable-altivec], [use altivec assembly blitters on PPC [[defau
               AC_DEFINE(HAVE_ALTIVEC_H)
             fi
             EXTRA_CFLAGS="$EXTRA_CFLAGS $altivec_CFLAGS"
+        fi
+    fi
+}
+
+dnl Check for altivec instruction support - APPLE extensions
+CheckAltivecApple()
+{
+    AC_ARG_ENABLE(altivec,
+AC_HELP_STRING([--enable-altivec], [use altivec assembly blitters on PPC [[default=yes]]]),
+                  , enable_altivec=yes)
+    if test x$enable_video = xyes -a x$enable_assembly = xyes -a x$enable_altivec = xyes; then
+        save_CFLAGS="$CFLAGS"
+        have_gcc_altivec=no
+        altivec_CFLAGS="-faltivec"
+        CFLAGS="$save_CFLAGS $altivec_CFLAGS"
+
+        dnl -faltivec doesn't need altivec.h and actually
+        dnl  emits a warning if included..
+        AC_MSG_CHECKING(for Altivec with GCC -faltivec option)
+        AC_TRY_COMPILE([
+        vector unsigned int vzero() {
+            return vec_splat_u32(0);
+        }
+        ],[
+        ],[
+        have_gcc_altivec=yes
+        ])
+        AC_MSG_RESULT($have_gcc_altivec)
+
+        CFLAGS="$save_CFLAGS"
+
+        if test x$have_gcc_altivec = xyes; then
+            AC_DEFINE(SDL_ALTIVEC_BLITTERS)
+            EXTRA_CFLAGS="$EXTRA_CFLAGS $altivec_CFLAGS"
+        else
+        dnl Check standart gcc altivec options
+            CheckAltivec
+        fi
+    fi
+}
+
+dnl Check for ARM instruction support using gas syntax
+CheckARM()
+{
+    AC_ARG_ENABLE(arm-simd,
+AC_HELP_STRING([--enable-arm-simd], [use SIMD assembly blitters on ARM [[default=no]]]),
+                  enable_arm_simd=$enableval, enable_arm_simd=no)
+    if test x$enable_video = xyes -a x$enable_assembly = xyes -a x$enable_arm_simd = xyes; then
+        save_CFLAGS="$CFLAGS"
+        have_arm_simd=no
+        CFLAGS="-x assembler-with-cpp $CFLAGS"
+        
+        AC_MSG_CHECKING(for ARM SIMD)
+        AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+        .text
+        .arch armv6
+        .object_arch armv4
+        .arm
+        .altmacro
+        #ifndef __ARM_EABI__
+        #error EABI is required (to be sure that calling conventions are compatible)
+        #endif
+        pld [r0]
+        uqadd8 r0, r0, r0
+        ]])], have_arm_simd=yes)
+        AC_MSG_RESULT($have_arm_simd)
+        
+        CFLAGS="$save_CFLAGS"
+        
+        if test x$have_arm_simd = xyes; then
+            AC_DEFINE(SDL_ARM_SIMD_BLITTERS)
+dnl            SOURCES="$SOURCES $srcdir/src/video/arm/pixman-arm-simd*.c"
+            SOURCES="$SOURCES $srcdir/src/video/arm/pixman-arm-simd*.S"
+        fi
+    fi
+}
+
+dnl Check for ARM NEON instruction support using gas syntax
+CheckNEON()
+{
+    AC_ARG_ENABLE(arm-neon,
+AC_HELP_STRING([--enable-arm-neon], [use NEON assembly blitters on ARM [[default=no]]]),
+                  enable_arm_neon=$enableval, enable_arm_neon=no)
+    if test x$enable_video = xyes -a x$enable_assembly = xyes -a x$enable_arm_neon = xyes; then
+        save_CFLAGS="$CFLAGS"
+        have_arm_neon=no
+        CFLAGS="-x assembler-with-cpp $CFLAGS"
+        
+        AC_MSG_CHECKING(for ARM NEON)
+        AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+        .text
+        .fpu neon
+        .arch armv7a
+        .object_arch armv4
+        .eabi_attribute 10, 0
+        .arm
+        .altmacro
+        #ifndef __ARM_EABI__
+        #error EABI is required (to be sure that calling conventions are compatible)
+        #endif
+        pld [r0]
+        vmovn.u16 d0, q0
+        ]])], have_arm_neon=yes)
+        AC_MSG_RESULT($have_arm_neon)
+        
+        CFLAGS="$save_CFLAGS"
+        
+        if test x$have_arm_neon = xyes; then
+            AC_DEFINE(SDL_ARM_NEON_BLITTERS)
+dnl            SOURCES="$SOURCES $srcdir/src/video/arm/pixman-arm-neon*.c"
+            SOURCES="$SOURCES $srcdir/src/video/arm/pixman-arm-neon*.S"
         fi
     fi
 }
@@ -2123,6 +2204,16 @@ CheckWIN32()
        ])
     fi
 
+    save_CFLAGS="$CFLAGS"
+    CFLAGS="$save_CFLAGS -Werror-implicit-function-declaration"
+    AC_TRY_LINK([#include <stdlib.h>],
+                [return (int) _strtoi64 (NULL,NULL,0);],
+                AC_DEFINE(HAVE__STRTOI64))
+    AC_TRY_LINK([#include <stdlib.h>],
+                [return (int) _strtoui64(NULL,NULL,0);],
+                AC_DEFINE(HAVE__STRTOUI64))
+    CFLAGS="$save_CFLAGS"
+
     dnl See if the user wants to redirect standard output to files
     AC_ARG_ENABLE(stdio-redirect,
 AC_HELP_STRING([--enable-stdio-redirect], [Redirect STDIO to files on Win32 [[default=yes]]]),
@@ -2419,6 +2510,8 @@ case "$host" in
         CheckDLOPEN
         CheckNASM
         CheckAltivec
+        CheckARM
+        CheckNEON
         CheckOSS
         CheckDMEDIA
         CheckMME
@@ -2775,7 +2868,7 @@ case "$host" in
         CheckMacGL
         CheckOpenGLX11
         CheckPTHREAD
-        CheckAltivec
+        CheckAltivecApple
 
         # Need this or things might misbuild on a G3.
         EXTRA_CFLAGS="$EXTRA_CFLAGS -force_cpusubtype_ALL"
@@ -2895,8 +2988,6 @@ case "$host" in
             SOURCES="$SOURCES $srcdir/src/timer/riscos/*.c"
             have_timers=yes
         fi
-        # The RISC OS platform requires special setup.
-        EXTRA_LDFLAGS="$EXTRA_LDFLAGS -ljpeg -ltiff -lpng -lz"
         ;;
     *)
         AC_MSG_ERROR([

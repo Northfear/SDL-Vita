@@ -23,7 +23,7 @@
 
 /*
  * Xbios SDL video driver
- * 
+ *
  * Patrice Mandin
  */
 
@@ -408,8 +408,8 @@ static SDL_Surface *XBIOS_SetVideoMode(_THIS, SDL_Surface *current,
 	int num_buffers;
 	xbiosmode_t *new_video_mode;
 	Uint32 new_screen_size;
-	Uint32 modeflags;
-	Uint32 lineWidth;
+	Uint32 modeflags, lineWidth;
+	Uint32 rmask, gmask, bmask, amask;
 
 	/* Free current buffers */
 	XBIOS_FreeBuffers(this);
@@ -442,7 +442,7 @@ static SDL_Surface *XBIOS_SetVideoMode(_THIS, SDL_Surface *current,
 	lineWidth = (*XBIOS_getLineWidth)(this, new_video_mode, width, new_depth);
 
 	new_screen_size = lineWidth * height;
-	new_screen_size += 256; /* To align on a 256 byte adress */	
+	new_screen_size += 256; /* To align on a 256 byte adress */
 
 	if (new_video_mode->flags & XBIOSMODE_C2P) {
 		XBIOS_shadowscreen = Atari_SysMalloc(new_screen_size, MX_PREFTTRAM);
@@ -481,7 +481,9 @@ static SDL_Surface *XBIOS_SetVideoMode(_THIS, SDL_Surface *current,
 	}
 
 	/* Allocate the new pixel format for the screen */
-	if ( ! SDL_ReallocFormat(current, new_depth, 0, 0, 0, 0) ) {
+	(*XBIOS_getScreenFormat)(this, new_depth, &rmask, &gmask, &bmask, &amask);
+
+	if ( ! SDL_ReallocFormat(current, new_depth, rmask, gmask, bmask, amask) ) {
 		XBIOS_FreeBuffers(this);
 		SDL_SetError("Couldn't allocate new pixel format for requested mode");
 		return(NULL);
@@ -520,11 +522,10 @@ static SDL_Surface *XBIOS_SetVideoMode(_THIS, SDL_Surface *current,
 	/* Now set the video mode */
 	(*XBIOS_setMode)(this, new_video_mode);
 
-	Vsync();
+	(*XBIOS_vsync)(this);
 #endif
 
 	this->UpdateRects = XBIOS_updRects;
-	XBIOS_recoffset = 2;
 
 	return (current);
 }
@@ -591,13 +592,13 @@ static void XBIOS_UpdateRects(_THIS, int numrects, SDL_Rect *rects)
 		}
 	}
 
+	if ((surface->flags & SDL_DOUBLEBUF) == SDL_DOUBLEBUF) {
 #ifndef DEBUG_VIDEO_XBIOS
-	(*XBIOS_swapVbuffers)(this);
+		(*XBIOS_swapVbuffers)(this);
 
-	Vsync();
+		(*XBIOS_vsync)(this);
 #endif
 
-	if ((surface->flags & SDL_DOUBLEBUF) == SDL_DOUBLEBUF) {
 		XBIOS_fbnum ^= 1;
 		if (!XBIOS_shadowscreen) {
 			int src_offset = (surface->locked ? surface->offset : 0);
@@ -630,13 +631,13 @@ static int XBIOS_FlipHWSurface(_THIS, SDL_Surface *surface)
 		);
 	}
 
+	if ((surface->flags & SDL_DOUBLEBUF) == SDL_DOUBLEBUF) {
 #ifndef DEBUG_VIDEO_XBIOS
-	(*XBIOS_swapVbuffers)(this);
+		(*XBIOS_swapVbuffers)(this);
 
-	Vsync();
+		(*XBIOS_vsync)(this);
 #endif
 
-	if ((surface->flags & SDL_DOUBLEBUF) == SDL_DOUBLEBUF) {
 		XBIOS_fbnum ^= 1;
 		if (!XBIOS_shadowscreen) {
 			src_offset = (surface->locked ? surface->offset : 0);
@@ -660,7 +661,7 @@ static void XBIOS_VideoQuit(_THIS)
 #ifndef DEBUG_VIDEO_XBIOS
 	(*XBIOS_restoreMode)(this);
 
-	Vsync();
+	(*XBIOS_vsync)(this);
 #endif
 
 #if SDL_VIDEO_OPENGL
@@ -691,7 +692,7 @@ static void XBIOS_VideoQuit(_THIS)
 		}
 	}
 
-	this->screen->pixels = NULL;	
+	this->screen->pixels = NULL;
 
 	/* Restore screensavers */
 	if (SDL_XBIOS_TveillePresent(this)) {

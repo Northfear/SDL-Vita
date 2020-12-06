@@ -27,7 +27,7 @@
    RISC OS - Joystick support by Alan Buckley (alan_baa@hotmail.com) - 10 April 2003
 
    Note: Currently assumes joystick is present if joystick module is loaded
-   and that there is one joystick with four buttons.
+   and that there is one joystick with eight buttons.
 */
 
 /* This is the system specific header for the SDL joystick API */
@@ -39,7 +39,9 @@
 
 #include "kernel.h"
 
-#define JOYSTICK_READ 0x43F40
+#ifndef Joystick_Read
+#define Joystick_Read 0x43F40
+#endif
 
 struct joystick_hwdata 
 {
@@ -58,7 +60,7 @@ int SDL_SYS_JoystickInit(void)
 
 	 /* Try to read joystick 0 */
 	regs.r[0] = 0;
-	if (_kernel_swi(JOYSTICK_READ, &regs, &regs) == NULL)
+	if (_kernel_swi(Joystick_Read, &regs, &regs) == NULL)
 	{
 		/* Switch works so assume we've got a joystick */
 		return 1;
@@ -87,15 +89,13 @@ const char *SDL_SYS_JoystickName(int index)
  */
 int SDL_SYS_JoystickOpen(SDL_Joystick *joystick)
 {
-	_kernel_swi_regs regs;
-
-	if(!(joystick->hwdata=SDL_malloc(sizeof(struct joystick_hwdata))))
+	if(!(joystick->hwdata=SDL_malloc(sizeof(struct joystick_hwdata)))) {
+		SDL_OutOfMemory();
 		return -1;
+	}
 
-	regs.r[0] = joystick->index;
-
-	/* Don't know how to get exact count of buttons so assume max of 4 for now */
-	joystick->nbuttons=4;
+	/* Don't know how to get exact count of buttons so assume max of 8 for now */
+	joystick->nbuttons=8;
 
 	joystick->nhats=0;
 	joystick->nballs=0;
@@ -116,7 +116,7 @@ void SDL_SYS_JoystickUpdate(SDL_Joystick *joystick)
 	_kernel_swi_regs regs;
 	regs.r[0] = joystick->index;
 
-	if (_kernel_swi(JOYSTICK_READ, &regs, &regs) == NULL)
+	if (_kernel_swi(Joystick_Read, &regs, &regs) == NULL)
 	{
 		int newstate = regs.r[0];
 		int oldstate = joystick->hwdata->joystate;

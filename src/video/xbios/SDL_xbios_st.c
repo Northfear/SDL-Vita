@@ -45,6 +45,8 @@ static void saveMode(_THIS, SDL_PixelFormat *vformat);
 static void setMode_ST(_THIS, xbiosmode_t *new_video_mode);
 static void setMode_STE(_THIS, xbiosmode_t *new_video_mode);
 static void restoreMode(_THIS);
+static void vsync_ST(_THIS);
+static void getScreenFormat(_THIS, int bpp, Uint32 *rmask, Uint32 *gmask, Uint32 *bmask, Uint32 *amask);
 static int getLineWidth(_THIS, xbiosmode_t *new_video_mode, int width, int bpp);
 static void swapVbuffers(_THIS);
 static int allocVbuffers(_THIS, int num_buffers, int bufsize);
@@ -57,6 +59,8 @@ void SDL_XBIOS_VideoInit_ST(_THIS, unsigned long cookie_cvdo)
 	XBIOS_saveMode = saveMode;
 	XBIOS_setMode = setMode_ST;
 	XBIOS_restoreMode = restoreMode;
+	XBIOS_vsync = vsync_ST;
+	XBIOS_getScreenFormat = getScreenFormat;
 	XBIOS_getLineWidth = getLineWidth;
 	XBIOS_swapVbuffers = swapVbuffers;
 	XBIOS_allocVbuffers = allocVbuffers;
@@ -78,7 +82,7 @@ static void saveMode(_THIS, SDL_PixelFormat *vformat)
 {
 	short *oldpalette;
 	int i;
-		
+
 	XBIOS_oldvbase=Physbase();
 	XBIOS_oldvmode=Getrez();
 
@@ -142,8 +146,22 @@ static void restoreMode(_THIS)
 	}
 }
 
+static void vsync_ST(_THIS)
+{
+	Vsync();
+}
+
+static void getScreenFormat(_THIS, int bpp, Uint32 *rmask, Uint32 *gmask, Uint32 *bmask, Uint32 *amask)
+{
+	*rmask = *gmask = *bmask = *amask = 0;
+}
+
 static int getLineWidth(_THIS, xbiosmode_t *new_video_mode, int width, int bpp)
 {
+	if (bpp==4) {
+		return (width >> 1);
+	}
+
 	return (width * (((bpp==15) ? 16 : bpp)>>3));
 }
 
@@ -188,7 +206,7 @@ static int setColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors)
 	int	i, r,g,b;
 
  	for (i=0;i<ncolors;i++) {
-		r = colors[i].r;	
+		r = colors[i].r;
 		g = colors[i].g;
 		b = colors[i].b;
 

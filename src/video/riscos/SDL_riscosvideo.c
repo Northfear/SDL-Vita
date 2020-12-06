@@ -54,29 +54,67 @@ static void RISCOS_VideoQuit(_THIS);
 static SDL_Rect **RISCOS_ListModes(_THIS, SDL_PixelFormat *format, Uint32 flags);
 static SDL_Surface *RISCOS_SetVideoMode(_THIS, SDL_Surface *current, int width, int height, int bpp, Uint32 flags);
 
-int RISCOS_GetWmInfo(_THIS, SDL_SysWMinfo *info);
-
-int RISCOS_ToggleFullScreen(_THIS, int fullscreen);
-/* Mouse checking */
-void RISCOS_CheckMouseMode(_THIS);
-extern SDL_GrabMode RISCOS_GrabInput(_THIS, SDL_GrabMode mode);
-
-/* Fullscreen mode functions */
-extern SDL_Surface *FULLSCREEN_SetVideoMode(_THIS, SDL_Surface *current, int width, int height, int bpp, Uint32 flags);
-extern void FULLSCREEN_BuildModeList(_THIS);
-extern void	FULLSCREEN_SetDeviceMode(_THIS);
-extern int FULLSCREEN_ToggleFromWimp(_THIS);
-
-/* Wimp mode functions */
-extern SDL_Surface *WIMP_SetVideoMode(_THIS, SDL_Surface *current,	int width, int height, int bpp, Uint32 flags);
-extern void WIMP_DeleteWindow(_THIS);
-extern int WIMP_ToggleFromFullScreen(_THIS);
-
 /* Hardware surface functions - common to WIMP and FULLSCREEN */
 static int RISCOS_AllocHWSurface(_THIS, SDL_Surface *surface);
 static int RISCOS_LockHWSurface(_THIS, SDL_Surface *surface);
 static void RISCOS_UnlockHWSurface(_THIS, SDL_Surface *surface);
 static void RISCOS_FreeHWSurface(_THIS, SDL_Surface *surface);
+
+#define MODE_350(type, xdpi, ydpi) \
+	(1 | (xdpi << 1) | (ydpi << 14) | (type << 27))
+#define MODE_521(type, xeig, yeig, flags) \
+	(0x78000001 | (xeig << 4) | (yeig << 6) | (flags & 0xFF00) | (type << 20))
+
+/* Table of known pixel formats */
+const RISCOS_SDL_PixelFormat *RISCOS_SDL_PixelFormats = (const RISCOS_SDL_PixelFormat[]) {
+/* 8bpp palettized */
+{ { 255,   0x0080, 3,                      28 }, 8, 0, 0, 0 },
+/* 12bpp true colour */
+{ { 4095,  0x0000, 4, MODE_521(16,1,1,0)      }, 12, 0x0f,     0x0f<<4, 0x0f<<8  },
+{ { 4095,  0x4000, 4, MODE_521(16,1,1,0x4000) }, 12, 0x0f<<8,  0x0f<<4, 0x0f     },
+/* 15bpp true colour */
+{ { 65535, 0x0000, 4, MODE_350(5,90,90)       }, 15, 0x1f,     0x1f<<5, 0x1f<<10 },
+{ { 65535, 0x4000, 4, MODE_521(5,1,1,0x4000)  }, 15, 0x1f<<10, 0x1f<<5, 0x1f     },
+/* 16bpp true colour */
+{ { 65535, 0x0080, 4, MODE_350(10,90,90)      }, 16, 0x1f,     0x3f<<5, 0x1f<<11 },
+{ { 65535, 0x4080, 4, MODE_521(10,1,1,0x4000) }, 16, 0x1f<<11, 0x3f<<5, 0x1f     },
+/* 32bpp true colour */
+{ { -1,    0x0000, 5, MODE_350(6,90,90)       }, 32, 0xff,     0xff<<8, 0xff<<16 },
+{ { -1,    0x4000, 5, MODE_521(6,1,1,0x4000)  }, 32, 0xff<<16, 0xff<<8, 0xff     },
+/* Terminator */
+{ },
+};
+
+const RISCOS_SDL_PixelFormat *RISCOS_CurrentPixelFormat()
+{
+	_kernel_swi_regs regs;
+	int vduvars[4];
+	const RISCOS_SDL_PixelFormat *fmt;
+
+	vduvars[0] = 3; /* NColour */
+	vduvars[1] = 0; /* ModeFlags */
+	vduvars[2] = 9; /* Log2BPP */
+	vduvars[3] = -1;
+
+	regs.r[0] = (int) vduvars;
+	regs.r[1] = (int) vduvars;
+
+	_kernel_swi(OS_ReadVduVariables, &regs, &regs);
+
+	vduvars[1] &= 0xf280; /* Mask out the bits we don't care about */
+
+	fmt = RISCOS_SDL_PixelFormats;
+	while (fmt->sdl_bpp)
+	{
+		if ((fmt->ro.ncolour == vduvars[0]) && (fmt->ro.modeflags == vduvars[1]) && (fmt->ro.log2bpp == vduvars[2]))
+		{
+			return fmt;
+		}
+		fmt++;
+	}
+
+	return NULL;
+}
 
 /* RISC OS driver bootstrap functions */
 
@@ -162,57 +200,45 @@ VideoBootStrap RISCOS_bootstrap = {
 int RISCOS_VideoInit(_THIS, SDL_PixelFormat *vformat)
 {
 	_kernel_swi_regs regs;
-	int vars[4], vals[3];
+	int vars[3];
+	const RISCOS_SDL_PixelFormat *fmt;
+	SDL_PixelFormat *fmt2 = NULL;
 
 	if (RISCOS_InitTask() == 0)
 	{
-		SDL_SetError("Unable to start task");
 		return 0;
 	}
 
-	vars[0] = 9;  /* Log base 2 bpp */
-	vars[1] = 11; /* XWndLimit - num x pixels -1 */
-	vars[2] = 12; /* YWndLimit - num y pixels -1 */
-	vars[3] = -1; /* Terminate list */
+	vars[0] = 11; /* XWndLimit - num x pixels -1 */
+	vars[1] = 12; /* YWndLimit - num y pixels -1 */
+	vars[2] = -1; /* Terminate list */
 	regs.r[0] = (int)vars;
-	regs.r[1] = (int)vals;
+	regs.r[1] = (int)vars;
 
 	_kernel_swi(OS_ReadVduVariables, &regs, &regs);
-	vformat->BitsPerPixel = (1 << vals[0]);
 
 	/* Determine the current screen size */
-	this->info.current_w = vals[1] + 1;
-	this->info.current_h = vals[2] + 1;
+	this->info.current_w = vars[0] + 1;
+	this->info.current_h = vars[1] + 1;
 
-	/* Minimum bpp for SDL is 8 */
-	if (vformat->BitsPerPixel < 8) vformat->BitsPerPixel = 8;
-
-
-	switch (vformat->BitsPerPixel)
+	fmt = RISCOS_CurrentPixelFormat();
+	if (fmt != NULL)
 	{
-		case 15:
-		case 16:
-			vformat->Bmask = 0x00007c00;
-			vformat->Gmask = 0x000003e0;
-			vformat->Rmask = 0x0000001f;
-			vformat->BitsPerPixel = 16; /* SDL wants actual number of bits used */
-			vformat->BytesPerPixel = 2;
-			break;
-
-		case 24:
-		case 32:
-			vformat->Bmask = 0x00ff0000;
-			vformat->Gmask = 0x0000ff00;
-			vformat->Rmask = 0x000000ff;
-			vformat->BytesPerPixel = 4;
-			break;
-
-		default:
-			vformat->Bmask = 0;
-			vformat->Gmask = 0;
-			vformat->Rmask = 0;
-			vformat->BytesPerPixel = 1;			
-			break;
+		fmt2 = SDL_AllocFormat(fmt->sdl_bpp,fmt->rmask,fmt->gmask,fmt->bmask,0);
+	}
+	if (fmt2 != NULL)
+	{
+		*vformat = *fmt2;
+		SDL_free(fmt2);
+	}
+	else
+	{
+		/* Panic! */
+		vformat->BitsPerPixel = 8;
+		vformat->Bmask = 0;
+		vformat->Gmask = 0;
+		vformat->Rmask = 0;
+		vformat->BytesPerPixel = 1;
 	}
 
 	/* Fill in some window manager capabilities */

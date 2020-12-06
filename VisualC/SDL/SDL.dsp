@@ -96,7 +96,7 @@ SOURCE=..\..\src\video\default_cursor.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\src\video\windx5\Directx.h
+SOURCE=..\..\src\video\windx5\directx.h
 # End Source File
 # Begin Source File
 
@@ -536,11 +536,11 @@ SOURCE=..\..\src\video\SDL_yuvfuncs.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\Version.rc
+SOURCE=..\..\src\main\win32\version.rc
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\src\video\wincommon\Wmmsg.h
+SOURCE=..\..\src\video\wincommon\wmmsg.h
 # End Source File
 # End Target
 # End Project
