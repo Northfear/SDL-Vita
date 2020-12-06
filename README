@@ -1,6 +1,6 @@
 Quickly butchered together PS Vita gxm port of SDL 1.2 with 1.2.16 version bump and some minor fixes and optimizations (like ~10% faster than vita2d version).
 
-- Thanks to isage for [SDL2 gxm port](https://github.com/isage/SDL-mirror)
+- Thanks to isage for SDL2 gxm port (https://github.com/isage/SDL-mirror)
 - And xerpi for libvita2d and original PS Vita SDL port
 
 
