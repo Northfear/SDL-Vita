@@ -21,7 +21,6 @@
 
 #include <psp2/kernel/processmgr.h>
 #include <psp2/touch.h>
-#include <psp2/kernel/clib.h> 
 
 #include "SDL_mouse.h"
 #include "../../events/SDL_events_c.h"

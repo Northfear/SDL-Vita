@@ -1,7 +1,7 @@
 # Makefile to build the SDL library
 
 INCLUDE = -I./include
-CFLAGS  = -Wl,-q -g -O3 $(INCLUDE)
+CFLAGS  = -Ofast -mcpu=cortex-a9 -mfpu=neon -ftree-vectorize -DSDL_ARM_NEON_BLITTERS=1 -DSDL_ARM_SIMD_BLITTERS=1 -D__VITA__ $(INCLUDE) -lSceLibc_stub -Werror
 
 CC	= arm-vita-eabi-gcc
 AR	= arm-vita-eabi-ar
@@ -28,8 +28,9 @@ SOURCES = \
 	src/thread/psp2/*.c \
 	src/timer/psp2/*.c \
 	src/loadso/dummy/*.c \
+	src/video/arm/*.S \
 
-OBJECTS = $(shell echo $(SOURCES) | sed -e 's,\.c,\.o,g')
+OBJECTS = $(shell echo $(SOURCES) | sed -e 's,\.c,\.o,g; s,\.S,\.o,g')
 
 #all: $(TARGET)
 #	make -f Makefile.vita-test clean

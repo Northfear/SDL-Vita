@@ -25,6 +25,7 @@
 #include <psp2/gxm.h>
 #include <psp2/types.h>
 #include <psp2/kernel/sysmem.h>
+#include <psp2/gxt.h>
 
 #include <stdio.h>
 #include <string.h>
