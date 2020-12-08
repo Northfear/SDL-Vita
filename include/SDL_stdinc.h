@@ -96,10 +96,6 @@
 # endif
 #endif
 
-#ifdef __VITA__
-#include "../src/video/arm/memcpy_neon.h"
-#endif
-
 /** The number of elements in an array */
 #define SDL_arraysize(array)	(sizeof(array)/sizeof(array[0]))
 #define SDL_TABLESIZE(table)	SDL_arraysize(table)
@@ -295,6 +291,7 @@ do {						\
 #endif
 
 #ifdef __VITA__
+void *memcpy_neon(void *destination, const void *source, size_t num);
 #define SDL_memcpy      memcpy_neon
 #endif
 

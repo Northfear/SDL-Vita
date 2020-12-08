@@ -46,14 +46,12 @@
 #include "SDL_psp2events_c.h"
 #include "SDL_psp2mouse_c.h"
 #include "SDL_psp2keyboard_c.h"
+#include "SDL_vitatouch.h"
 
 #include "SDL_render_vita_gxm_tools.h"
 #include "SDL_render_vita_gxm_types.h"
 
 #define PSP2VID_DRIVER_NAME "psp2"
-
-#define SCREEN_W 960
-#define SCREEN_H 544
 
 typedef struct private_hwdata {
 	gxm_texture *texture;
@@ -158,6 +156,7 @@ int PSP2_VideoInit(_THIS, SDL_PixelFormat *vformat)
 
 	PSP2_InitKeyboard();
 	PSP2_InitMouse();
+	VITA_InitTouch();
 
 	return(0);
 }
@@ -395,3 +394,16 @@ VideoBootStrap PSP2_bootstrap = {
 	PSP2_Available, PSP2_CreateDevice
 };
 
+void PSP2_GetSurfaceRect(SDL_Rect *surfaceRect, SDL_Rect *scaledRect)
+{
+	SDL_Surface *surface = SDL_VideoSurface;
+
+	if (surface != NULL && surface->hwdata != NULL)
+	{
+		surfaceRect->x = 0;
+		surfaceRect->y = 0;
+		surfaceRect->w = surface->w;
+		surfaceRect->h = surface->h;
+		*scaledRect = surface->hwdata->dst;
+	}
+}

@@ -32,11 +32,13 @@
 #include "SDL_psp2events_c.h"
 #include "SDL_psp2keyboard_c.h"
 #include "SDL_psp2mouse_c.h"
+#include "SDL_vitatouch.h"
 
 void PSP2_PumpEvents(_THIS)
 {
 	PSP2_PollKeyboard();
 	PSP2_PollMouse();
+    VITA_PollTouch();
 }
 
 void PSP2_InitOSKeymap(_THIS)
