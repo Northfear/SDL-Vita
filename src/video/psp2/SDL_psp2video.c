@@ -249,17 +249,17 @@ static int PSP2_AllocHWSurface(_THIS, SDL_Surface *surface)
 	{
 		case 16:
 			surface->hwdata->texture =
-				create_gxm_texture(surface->w, surface->h, SCE_GXM_TEXTURE_FORMAT_R5G6B5, 0);
+				create_gxm_texture(surface->w, surface->h, SCE_GXM_TEXTURE_FORMAT_R5G6B5);
 		break;
 
 		case 24:
 			surface->hwdata->texture =
-				create_gxm_texture(surface->w, surface->h, SCE_GXM_TEXTURE_FORMAT_U8U8U8_RGB, 0);
+				create_gxm_texture(surface->w, surface->h, SCE_GXM_TEXTURE_FORMAT_U8U8U8_RGB);
 		break;
 
 		case 32:
 			surface->hwdata->texture =
-				create_gxm_texture(surface->w, surface->h, SCE_GXM_COLOR_FORMAT_A8B8G8R8, 0);
+				create_gxm_texture(surface->w, surface->h, SCE_GXM_COLOR_FORMAT_A8B8G8R8);
 		break;
 
 		default:

@@ -32,7 +32,6 @@
 #include "SDL_render_vita_gxm_types.h"
 
 void init_orthographic_matrix(float *m, float left, float right, float bottom, float top, float near, float far);
-//void *pool_malloc(VITA_GXM_RenderData *data, unsigned int size);
 void *pool_memalign(unsigned int size, unsigned int alignment);
 
 int gxm_init();
@@ -41,7 +40,7 @@ void gxm_finish();
 void gxm_wait_rendering_done();
 void gxm_start_drawing();
 
-gxm_texture *create_gxm_texture(unsigned int w, unsigned int h, SceGxmTextureFormat format, unsigned int isRenderTarget);
+gxm_texture *create_gxm_texture(unsigned int w, unsigned int h, SceGxmTextureFormat format);
 void free_gxm_texture(gxm_texture *texture);
 
 void gxm_texture_set_filters(gxm_texture *texture, SceGxmTextureFilter min_filter, SceGxmTextureFilter mag_filter);
@@ -49,7 +48,6 @@ SceGxmTextureFormat gxm_texture_get_format(const gxm_texture *texture);
 
 unsigned int gxm_texture_get_width(const gxm_texture *texture);
 unsigned int gxm_texture_get_height(const gxm_texture *texture);
-
 unsigned int gxm_texture_get_stride(const gxm_texture *texture);
 void *gxm_texture_get_datap(const gxm_texture *texture);
 

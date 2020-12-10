@@ -82,7 +82,7 @@ void *pool_memalign(unsigned int size, unsigned int alignment)
 {
     unsigned int new_index = (data->pool_index + alignment - 1) & ~(alignment - 1);
     if ((new_index + size) < VITA_GXM_POOL_SIZE) {
-        void *addr = (void *)((unsigned int)data->pool_addr[data->current_pool] + new_index);
+        void *addr = (void *)((unsigned int)data->pool_addr + new_index);
         data->pool_index = new_index + size;
         return addr;
     }
@@ -135,76 +135,6 @@ static void display_callback(const void *callback_data)
     if (data->vblank_wait) {
         sceDisplayWaitVblankStart();
     }
-}
-
-static void free_fragment_programs(VITA_GXM_RenderData *data, fragment_programs *out)
-{
-    sceGxmShaderPatcherReleaseFragmentProgram(data->shaderPatcher, out->color);
-    sceGxmShaderPatcherReleaseFragmentProgram(data->shaderPatcher, out->texture);
-    sceGxmShaderPatcherReleaseFragmentProgram(data->shaderPatcher, out->textureTint);
-}
-
-static void make_fragment_programs(VITA_GXM_RenderData *data, fragment_programs *out, const SceGxmBlendInfo *blend_info)
-{
-    int err;
-
-    err = sceGxmShaderPatcherCreateFragmentProgram(
-        data->shaderPatcher,
-        data->colorFragmentProgramId,
-        SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4,
-        0,
-        blend_info,
-        colorVertexProgramGxp,
-        &out->color
-    );
-
-    if (err != SCE_OK) {
-        SDL_SetError("Patcher create fragment failed: %d\n", err);
-        return;
-    }
-
-    err = sceGxmShaderPatcherCreateFragmentProgram(
-        data->shaderPatcher,
-        data->textureFragmentProgramId,
-        SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4,
-        0,
-        blend_info,
-        textureVertexProgramGxp,
-        &out->texture
-    );
-
-    if (err != SCE_OK) {
-        SDL_SetError("Patcher create fragment failed: %d\n", err);
-        return;
-    }
-
-    err = sceGxmShaderPatcherCreateFragmentProgram(
-        data->shaderPatcher,
-        data->textureTintFragmentProgramId,
-        SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4,
-        0,
-        blend_info,
-        textureVertexProgramGxp,
-        &out->textureTint
-    );
-
-    if (err != SCE_OK) {
-        SDL_SetError("Patcher create fragment failed: %d\n", err);
-        return;
-    }
-}
-
-static inline void set_texture_program()
-{
-	sceGxmSetVertexProgram(data->gxm_context, data->textureVertexProgram);
-	sceGxmSetFragmentProgram(data->gxm_context, data->textureFragmentProgram);
-}
-
-static inline void set_texture_wvp_uniform()
-{
-	void *vertex_wvp_buffer;
-	sceGxmReserveVertexDefaultUniformBuffer(data->gxm_context, &vertex_wvp_buffer);
-	sceGxmSetUniformDataF(vertex_wvp_buffer, data->textureWvpParam, 0, 16, data->ortho_matrix);
 }
 
 int gxm_init()
@@ -438,31 +368,6 @@ int gxm_init()
         return err;
     }
 
-    // check the shaders
-    err = sceGxmProgramCheck(clearVertexProgramGxp);
-    if (err != SCE_OK) {
-        SDL_SetError("check program (clear vertex) failed: %d\n", err);
-        return err;
-    }
-
-    err = sceGxmProgramCheck(clearFragmentProgramGxp);
-    if (err != SCE_OK) {
-        SDL_SetError("check program (clear fragment) failed: %d\n", err);
-        return err;
-    }
-
-    err = sceGxmProgramCheck(colorVertexProgramGxp);
-    if (err != SCE_OK) {
-        SDL_SetError("check program (color vertex) failed: %d\n", err);
-        return err;
-    }
-
-    err = sceGxmProgramCheck(colorFragmentProgramGxp);
-    if (err != SCE_OK) {
-        SDL_SetError("check program (color fragment) failed: %d\n", err);
-        return err;
-    }
-
     err = sceGxmProgramCheck(textureVertexProgramGxp);
     if (err != SCE_OK) {
         SDL_SetError("check program (texture vertex) failed: %d\n", err);
@@ -475,37 +380,7 @@ int gxm_init()
         return err;
     }
 
-    err = sceGxmProgramCheck(textureTintFragmentProgramGxp);
-    if (err != SCE_OK) {
-        SDL_SetError("check program (texture tint fragment) failed: %d\n", err);
-        return err;
-    }
-
     // register programs with the patcher
-    err = sceGxmShaderPatcherRegisterProgram(data->shaderPatcher, clearVertexProgramGxp, &data->clearVertexProgramId);
-    if (err != SCE_OK) {
-        SDL_SetError("register program (clear vertex) failed: %d\n", err);
-        return err;
-    }
-
-    err = sceGxmShaderPatcherRegisterProgram(data->shaderPatcher, clearFragmentProgramGxp, &data->clearFragmentProgramId);
-    if (err != SCE_OK) {
-        SDL_SetError("register program (clear fragment) failed: %d\n", err);
-        return err;
-    }
-
-    err = sceGxmShaderPatcherRegisterProgram(data->shaderPatcher, colorVertexProgramGxp, &data->colorVertexProgramId);
-    if (err != SCE_OK) {
-        SDL_SetError("register program (color vertex) failed: %d\n", err);
-        return err;
-    }
-
-    err = sceGxmShaderPatcherRegisterProgram(data->shaderPatcher, colorFragmentProgramGxp, &data->colorFragmentProgramId);
-    if (err != SCE_OK) {
-        SDL_SetError("register program (color fragment) failed: %d\n", err);
-        return err;
-    }
-
     err = sceGxmShaderPatcherRegisterProgram(data->shaderPatcher, textureVertexProgramGxp, &data->textureVertexProgramId);
     if (err != SCE_OK) {
         SDL_SetError("register program (texture vertex) failed: %d\n", err);
@@ -517,75 +392,6 @@ int gxm_init()
         SDL_SetError("register program (texture fragment) failed: %d\n", err);
         return err;
     }
-
-    err = sceGxmShaderPatcherRegisterProgram(data->shaderPatcher, textureTintFragmentProgramGxp, &data->textureTintFragmentProgramId);
-    if (err != SCE_OK) {
-        SDL_SetError("register program (texture tint fragment) failed: %d\n", err);
-        return err;
-    }
-
-    // Fill SceGxmBlendInfo
-    static const SceGxmBlendInfo blend_info_none = {
-        .colorFunc = SCE_GXM_BLEND_FUNC_NONE,
-        .alphaFunc = SCE_GXM_BLEND_FUNC_NONE,
-        .colorSrc  = SCE_GXM_BLEND_FACTOR_ZERO,
-        .colorDst  = SCE_GXM_BLEND_FACTOR_ZERO,
-        .alphaSrc  = SCE_GXM_BLEND_FACTOR_ZERO,
-        .alphaDst  = SCE_GXM_BLEND_FACTOR_ZERO,
-        .colorMask = SCE_GXM_COLOR_MASK_ALL
-    };
-
-    // get attributes by name to create vertex format bindings
-    const SceGxmProgramParameter *paramClearPositionAttribute = sceGxmProgramFindParameterByName(clearVertexProgramGxp, "aPosition");
-
-    // create clear vertex format
-    SceGxmVertexAttribute clearVertexAttributes[1];
-    SceGxmVertexStream clearVertexStreams[1];
-    clearVertexAttributes[0].streamIndex    = 0;
-    clearVertexAttributes[0].offset         = 0;
-    clearVertexAttributes[0].format         = SCE_GXM_ATTRIBUTE_FORMAT_F32;
-    clearVertexAttributes[0].componentCount = 2;
-    clearVertexAttributes[0].regIndex       = sceGxmProgramParameterGetResourceIndex(paramClearPositionAttribute);
-    clearVertexStreams[0].stride            = sizeof(clear_vertex);
-    clearVertexStreams[0].indexSource       = SCE_GXM_INDEX_SOURCE_INDEX_16BIT;
-
-    // create clear programs
-    err = sceGxmShaderPatcherCreateVertexProgram(
-        data->shaderPatcher,
-        data->clearVertexProgramId,
-        clearVertexAttributes,
-        1,
-        clearVertexStreams,
-        1,
-        &data->clearVertexProgram
-    );
-    if (err != SCE_OK) {
-        SDL_SetError("create program (clear vertex) failed: %d\n", err);
-        return err;
-    }
-
-    err = sceGxmShaderPatcherCreateFragmentProgram(
-        data->shaderPatcher,
-        data->clearFragmentProgramId,
-        SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4,
-        0,
-        NULL,
-        clearVertexProgramGxp,
-        &data->clearFragmentProgram
-    );
-    if (err != SCE_OK) {
-        SDL_SetError("create program (clear fragment) failed: %d\n", err);
-        return err;
-    }
-
-    // create the clear triangle vertex/index data
-    data->clearVertices = (clear_vertex *)mem_gpu_alloc(
-        SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE,
-        3*sizeof(clear_vertex),
-        4,
-        SCE_GXM_MEMORY_ATTRIB_READ,
-        &data->clearVerticesUid
-    );
 
     // Allocate a 64k * 2 bytes = 128 KiB buffer and store all possible
     // 16-bit indices in linear ascending order, so we can use this for
@@ -601,50 +407,6 @@ int gxm_init()
     for (uint32_t i=0; i<=UINT16_MAX; ++i)
     {
         data->linearIndices[i] = i;
-    }
-
-    data->clearVertices[0].x = -1.0f;
-    data->clearVertices[0].y = -1.0f;
-    data->clearVertices[1].x =  3.0f;
-    data->clearVertices[1].y = -1.0f;
-    data->clearVertices[2].x = -1.0f;
-    data->clearVertices[2].y =  3.0f;
-
-    const SceGxmProgramParameter *paramColorPositionAttribute = sceGxmProgramFindParameterByName(colorVertexProgramGxp, "aPosition");
-    const SceGxmProgramParameter *paramColorColorAttribute = sceGxmProgramFindParameterByName(colorVertexProgramGxp, "aColor");
-
-    // create color vertex format
-    SceGxmVertexAttribute colorVertexAttributes[2];
-    SceGxmVertexStream colorVertexStreams[1];
-    /* x,y,z: 3 float 32 bits */
-    colorVertexAttributes[0].streamIndex = 0;
-    colorVertexAttributes[0].offset = 0;
-    colorVertexAttributes[0].format = SCE_GXM_ATTRIBUTE_FORMAT_F32;
-    colorVertexAttributes[0].componentCount = 3; // (x, y, z)
-    colorVertexAttributes[0].regIndex = sceGxmProgramParameterGetResourceIndex(paramColorPositionAttribute);
-    /* color: 4 unsigned char  = 32 bits */
-    colorVertexAttributes[1].streamIndex = 0;
-    colorVertexAttributes[1].offset = 12; // (x, y, z) * 4 = 12 bytes
-    colorVertexAttributes[1].format = SCE_GXM_ATTRIBUTE_FORMAT_U8N;
-    colorVertexAttributes[1].componentCount = 4; // (color)
-    colorVertexAttributes[1].regIndex = sceGxmProgramParameterGetResourceIndex(paramColorColorAttribute);
-    // 16 bit (short) indices
-    colorVertexStreams[0].stride = sizeof(color_vertex);
-    colorVertexStreams[0].indexSource = SCE_GXM_INDEX_SOURCE_INDEX_16BIT;
-
-    // create color shaders
-    err = sceGxmShaderPatcherCreateVertexProgram(
-        data->shaderPatcher,
-        data->colorVertexProgramId,
-        colorVertexAttributes,
-        2,
-        colorVertexStreams,
-        1,
-        &data->colorVertexProgram
-    );
-    if (err != SCE_OK) {
-        SDL_SetError("create program (color vertex) failed: %d\n", err);
-        return err;
     }
 
     const SceGxmProgramParameter *paramTexturePositionAttribute = sceGxmProgramFindParameterByName(textureVertexProgramGxp, "aPosition");
@@ -684,76 +446,52 @@ int gxm_init()
         return err;
     }
 
-    // Create variations of the fragment program based on blending mode
-    make_fragment_programs(data, &data->blendFragmentPrograms.blend_mode_none, &blend_info_none);
+    // Fill SceGxmBlendInfo
+    static const SceGxmBlendInfo blend_info = {
+        .colorFunc = SCE_GXM_BLEND_FUNC_NONE,
+        .alphaFunc = SCE_GXM_BLEND_FUNC_NONE,
+        .colorSrc  = SCE_GXM_BLEND_FACTOR_ZERO,
+        .colorDst  = SCE_GXM_BLEND_FACTOR_ZERO,
+        .alphaSrc  = SCE_GXM_BLEND_FACTOR_ZERO,
+        .alphaDst  = SCE_GXM_BLEND_FACTOR_ZERO,
+        .colorMask = SCE_GXM_COLOR_MASK_ALL
+    };
 
-    // Default to blend blending mode
-    fragment_programs *in = &data->blendFragmentPrograms.blend_mode_none;
+    err = sceGxmShaderPatcherCreateFragmentProgram(
+        data->shaderPatcher,
+        data->textureFragmentProgramId,
+        SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4,
+        0,
+        &blend_info,
+        textureVertexProgramGxp,
+        &data->textureFragmentProgram
+    );
 
-    data->colorFragmentProgram = in->color;
-    data->textureFragmentProgram = in->texture;
-    data->textureTintFragmentProgram = in->textureTint;
+    if (err != SCE_OK) {
+        SDL_SetError("Patcher create fragment failed: %d\n", err);
+        return err;
+    }
 
     // find vertex uniforms by name and cache parameter information
-    data->clearClearColorParam = (SceGxmProgramParameter *)sceGxmProgramFindParameterByName(clearFragmentProgramGxp, "uClearColor");
-    data->colorWvpParam = (SceGxmProgramParameter *)sceGxmProgramFindParameterByName(colorVertexProgramGxp, "wvp");
     data->textureWvpParam = (SceGxmProgramParameter *)sceGxmProgramFindParameterByName(textureVertexProgramGxp, "wvp");
-    data->textureTintColorParam = (SceGxmProgramParameter *)sceGxmProgramFindParameterByName(textureTintFragmentProgramGxp, "uTintColor");
 
     // Allocate memory for the memory pool
-    data->pool_addr[0] = mem_gpu_alloc(
+    data->pool_addr = mem_gpu_alloc(
         SCE_KERNEL_MEMBLOCK_TYPE_USER_RW,
         VITA_GXM_POOL_SIZE,
         sizeof(void *),
         SCE_GXM_MEMORY_ATTRIB_READ,
-        &data->poolUid[0]
+        &data->poolUid
     );
-
-    data->pool_addr[1] = mem_gpu_alloc(
-        SCE_KERNEL_MEMBLOCK_TYPE_USER_RW,
-        VITA_GXM_POOL_SIZE,
-        sizeof(void *),
-        SCE_GXM_MEMORY_ATTRIB_READ,
-        &data->poolUid[1]
-    );
-
     init_orthographic_matrix(data->ortho_matrix, 0.0f, VITA_GXM_SCREEN_WIDTH, VITA_GXM_SCREEN_HEIGHT, 0.0f, 0.0f, 1.0f);
 
     data->backBufferIndex = 0;
     data->frontBufferIndex = 0;
-    data->pool_index = 0;
-    data->current_pool = 0;
 
-    set_texture_program();
+    sceGxmSetVertexProgram(data->gxm_context, data->textureVertexProgram);
+	sceGxmSetFragmentProgram(data->gxm_context, data->textureFragmentProgram);
 
     return 0;
-}
-
-void gxm_start_drawing()
-{
-    if(data->drawing)
-    {
-        SDL_SetError("uh-oh, already drawing\n");
-        return;
-    }
-
-    sceGxmBeginScene(
-        data->gxm_context,
-        0,
-        data->renderTarget,
-        NULL,
-        NULL,
-        data->displayBufferSync[data->backBufferIndex],
-        &data->displaySurface[data->backBufferIndex],
-        &data->depthSurface
-    );
-
-    data->drawing = SDL_TRUE;
-}
-
-void gxm_wait_rendering_done()
-{
-	sceGxmFinish(data->gxm_context);
 }
 
 void gxm_finish()
@@ -762,15 +500,10 @@ void gxm_finish()
     sceGxmFinish(data->gxm_context);
 
     // clean up allocations
-    sceGxmShaderPatcherReleaseFragmentProgram(data->shaderPatcher, data->clearFragmentProgram);
-    sceGxmShaderPatcherReleaseVertexProgram(data->shaderPatcher, data->clearVertexProgram);
-    sceGxmShaderPatcherReleaseVertexProgram(data->shaderPatcher, data->colorVertexProgram);
     sceGxmShaderPatcherReleaseVertexProgram(data->shaderPatcher, data->textureVertexProgram);
-
-    free_fragment_programs(data, &data->blendFragmentPrograms.blend_mode_none);
+    sceGxmShaderPatcherReleaseFragmentProgram(data->shaderPatcher, data->textureFragmentProgram);
 
     mem_gpu_free(data->linearIndicesUid);
-    mem_gpu_free(data->clearVerticesUid);
 
     // wait until display queue is finished before deallocating display buffers
     sceGxmDisplayQueueFinish();
@@ -793,12 +526,7 @@ void gxm_finish()
     mem_gpu_free(data->stencilBufferUid);
 
     // unregister programs and destroy shader patcher
-    sceGxmShaderPatcherUnregisterProgram(data->shaderPatcher, data->clearFragmentProgramId);
-    sceGxmShaderPatcherUnregisterProgram(data->shaderPatcher, data->clearVertexProgramId);
-    sceGxmShaderPatcherUnregisterProgram(data->shaderPatcher, data->colorFragmentProgramId);
-    sceGxmShaderPatcherUnregisterProgram(data->shaderPatcher, data->colorVertexProgramId);
     sceGxmShaderPatcherUnregisterProgram(data->shaderPatcher, data->textureFragmentProgramId);
-    sceGxmShaderPatcherUnregisterProgram(data->shaderPatcher, data->textureTintFragmentProgramId);
     sceGxmShaderPatcherUnregisterProgram(data->shaderPatcher, data->textureVertexProgramId);
 
     sceGxmShaderPatcherDestroy(data->shaderPatcher);
@@ -817,9 +545,7 @@ void gxm_finish()
     mem_gpu_free(data->vdmRingBufferUid);
     SDL_free(data->contextParams.hostMem);
 
-    mem_gpu_free(data->poolUid[0]);
-    mem_gpu_free(data->poolUid[1]);
-
+    mem_gpu_free(data->poolUid);
     // terminate libgxm
     sceGxmTerminate();
 
@@ -869,7 +595,7 @@ void* gxm_texture_get_datap(const gxm_texture *texture)
     return sceGxmTextureGetData(&texture->gxm_tex);
 }
 
-gxm_texture* create_gxm_texture(unsigned int w, unsigned int h, SceGxmTextureFormat format, unsigned int isRenderTarget)
+gxm_texture* create_gxm_texture(unsigned int w, unsigned int h, SceGxmTextureFormat format)
 {
     //crashes otherwise. no idea why tbh
     if (format == SCE_GXM_COLOR_FORMAT_A8B8G8R8)
@@ -924,81 +650,6 @@ gxm_texture* create_gxm_texture(unsigned int w, unsigned int h, SceGxmTextureFor
         texture->palette_UID = 0;
     }
 
-    if (isRenderTarget) {
-
-        int err = sceGxmColorSurfaceInit(
-            &texture->gxm_colorsurface,
-            SCE_GXM_COLOR_FORMAT_A8B8G8R8,
-            SCE_GXM_COLOR_SURFACE_LINEAR,
-            SCE_GXM_COLOR_SURFACE_SCALE_NONE,
-            SCE_GXM_OUTPUT_REGISTER_SIZE_32BIT,
-            w,
-            h,
-            w,
-            texture_data
-        );
-
-        if (err < 0) {
-            free_gxm_texture(texture);
-            SDL_SetError("color surface init failed: %d\n", err);
-            return NULL;
-        }
-
-        // create the depth/stencil surface
-        const uint32_t alignedWidth = ALIGN(w, SCE_GXM_TILE_SIZEX);
-        const uint32_t alignedHeight = ALIGN(h, SCE_GXM_TILE_SIZEY);
-        uint32_t sampleCount = alignedWidth*alignedHeight;
-        uint32_t depthStrideInSamples = alignedWidth;
-
-        // allocate it
-        void *depthBufferData = mem_gpu_alloc(
-            SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE,
-            4*sampleCount,
-            SCE_GXM_DEPTHSTENCIL_SURFACE_ALIGNMENT,
-            SCE_GXM_MEMORY_ATTRIB_READ | SCE_GXM_MEMORY_ATTRIB_WRITE,
-            &texture->depth_UID);
-
-        // create the SceGxmDepthStencilSurface structure
-        err = sceGxmDepthStencilSurfaceInit(
-            &texture->gxm_depthstencil,
-            SCE_GXM_DEPTH_STENCIL_FORMAT_S8D24,
-            SCE_GXM_DEPTH_STENCIL_SURFACE_TILED,
-            depthStrideInSamples,
-            depthBufferData,
-            NULL);
-
-        if (err < 0) {
-            free_gxm_texture(texture);
-            SDL_SetError("depth stencil init failed: %d\n", err);
-            return NULL;
-        }
-
-        SceGxmRenderTarget *tgt = NULL;
-
-        // set up parameters
-        SceGxmRenderTargetParams renderTargetParams;
-        memset(&renderTargetParams, 0, sizeof(SceGxmRenderTargetParams));
-        renderTargetParams.flags = 0;
-        renderTargetParams.width = w;
-        renderTargetParams.height = h;
-        renderTargetParams.scenesPerFrame = 1;
-        renderTargetParams.multisampleMode = SCE_GXM_MULTISAMPLE_NONE;
-        renderTargetParams.multisampleLocations = 0;
-        renderTargetParams.driverMemBlock = -1;
-
-        // create the render target
-        err = sceGxmCreateRenderTarget(&renderTargetParams, &tgt);
-
-        texture->gxm_rendertarget = tgt;
-
-        if (err < 0) {
-            free_gxm_texture(texture);
-            SDL_SetError("create render target failed: %d\n", err);
-            return NULL;
-        }
-
-    }
-
     return texture;
 }
 
@@ -1040,10 +691,39 @@ void gxm_init_texture_scale(const gxm_texture *texture, float x, float y, float 
 	sceGxmSetVertexStream(data->gxm_context, 0, vertices);
 }
 
+void gxm_start_drawing()
+{
+    if(data->drawing)
+    {
+        SDL_SetError("uh-oh, already drawing\n");
+        return;
+    }
+
+    sceGxmBeginScene(
+        data->gxm_context,
+        0,
+        data->renderTarget,
+        NULL,
+        NULL,
+        data->displayBufferSync[data->backBufferIndex],
+        &data->displaySurface[data->backBufferIndex],
+        &data->depthSurface
+    );
+
+    data->drawing = SDL_TRUE;
+}
+
 void gxm_draw_texture(const gxm_texture *texture)
 {
-    set_texture_wvp_uniform();
+    void *vertex_wvp_buffer;
+	sceGxmReserveVertexDefaultUniformBuffer(data->gxm_context, &vertex_wvp_buffer);
+	sceGxmSetUniformDataF(vertex_wvp_buffer, data->textureWvpParam, 0, 16, data->ortho_matrix);
 	sceGxmDraw(data->gxm_context, SCE_GXM_PRIMITIVE_TRIANGLE_STRIP, SCE_GXM_INDEX_FORMAT_U16, data->linearIndices, 4);
+}
+
+void gxm_wait_rendering_done()
+{
+	sceGxmFinish(data->gxm_context);
 }
 
 void gxm_end_drawing()
@@ -1066,8 +746,6 @@ void gxm_swap_buffers()
     data->frontBufferIndex = data->backBufferIndex;
     data->backBufferIndex = (data->backBufferIndex + 1) % VITA_GXM_BUFFERS;
     data->pool_index = 0;
-
-    data->current_pool = (data->current_pool + 1) % 2;
 
     data->drawing = SDL_FALSE;
 }

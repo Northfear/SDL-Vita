@@ -152,4 +152,8 @@ typedef unsigned int size_t;
 /* Enable the psp2 video driver (src/video/psp2/\*.c) */
 #define SDL_VIDEO_DRIVER_PSP2	1
 
+/* enable optimized blitters */
+#define SDL_ARM_SIMD_BLITTERS 1
+#define SDL_ARM_NEON_BLITTERS 1
+
 #endif /* _SDL_config_psp2_h */

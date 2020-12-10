@@ -42,25 +42,13 @@
 
 #define VITA_GXM_BUFFERS          3
 #define VITA_GXM_PENDING_SWAPS    2
-#define VITA_GXM_POOL_SIZE        2 * 1024 * 1024
+#define VITA_GXM_POOL_SIZE        128
 
 
 typedef struct
 {
     void     *address;
 } VITA_GXM_DisplayData;
-
-typedef struct clear_vertex {
-    float x;
-    float y;
-} clear_vertex;
-
-typedef struct color_vertex {
-    float x;
-    float y;
-    float z;
-    unsigned int color;
-} color_vertex;
 
 typedef struct texture_vertex {
     float x;
@@ -80,29 +68,9 @@ typedef struct gxm_texture {
     SceUID depth_UID;
 } gxm_texture;
 
-typedef struct fragment_programs {
-    SceGxmFragmentProgram *color;
-    SceGxmFragmentProgram *texture;
-    SceGxmFragmentProgram *textureTint;
-} fragment_programs;
-
-typedef struct blend_fragment_programs {
-    fragment_programs blend_mode_none;
-} blend_fragment_programs;
-
 typedef struct
 {
-    SceGxmFragmentProgram *fragment_program;
-    SceGxmVertexProgram *vertex_program;
-} gxm_drawstate_cache;
-
-typedef struct
-{
-    SDL_bool      initialized;
     SDL_bool      drawing;
-
-    unsigned int  psm;
-    unsigned int  bpp;
 
     VITA_GXM_DisplayData displayData;
 
@@ -127,47 +95,28 @@ typedef struct
     unsigned int backBufferIndex;
     unsigned int frontBufferIndex;
 
-    void* pool_addr[2];
-    SceUID poolUid[2];
+    void* pool_addr;
+    SceUID poolUid;
     unsigned int pool_index;
-    unsigned int current_pool;
 
     float ortho_matrix[4*4];
 
-    SceGxmVertexProgram *colorVertexProgram;
-    SceGxmFragmentProgram *colorFragmentProgram;
     SceGxmVertexProgram *textureVertexProgram;
     SceGxmFragmentProgram *textureFragmentProgram;
-    SceGxmFragmentProgram *textureTintFragmentProgram;
-    SceGxmProgramParameter *clearClearColorParam;
-    SceGxmProgramParameter *colorWvpParam;
     SceGxmProgramParameter *textureWvpParam;
-    SceGxmProgramParameter *textureTintColorParam;
 
     SceGxmShaderPatcher *shaderPatcher;
-    SceGxmVertexProgram *clearVertexProgram;
-    SceGxmFragmentProgram *clearFragmentProgram;
 
-    SceGxmShaderPatcherId clearVertexProgramId;
-    SceGxmShaderPatcherId clearFragmentProgramId;
-    SceGxmShaderPatcherId colorVertexProgramId;
-    SceGxmShaderPatcherId colorFragmentProgramId;
     SceGxmShaderPatcherId textureVertexProgramId;
     SceGxmShaderPatcherId textureFragmentProgramId;
-    SceGxmShaderPatcherId textureTintFragmentProgramId;
 
     SceUID patcherBufferUid;
     SceUID patcherVertexUsseUid;
     SceUID patcherFragmentUsseUid;
 
-    SceUID clearVerticesUid;
     SceUID linearIndicesUid;
-    clear_vertex *clearVertices;
     uint16_t *linearIndices;
 
-    blend_fragment_programs blendFragmentPrograms;
-
-    gxm_drawstate_cache drawstate;
     int vblank_wait;
 } VITA_GXM_RenderData;
 
