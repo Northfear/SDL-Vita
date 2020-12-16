@@ -1,11 +1,11 @@
 # Makefile to build the SDL library
 
 INCLUDE = -I./include
-CFLAGS  = -Ofast -mcpu=cortex-a9 -mfpu=neon -ftree-vectorize -D__VITA__ $(INCLUDE) -lSceLibc_stub -Werror
+CFLAGS  = -Ofast -mcpu=cortex-a9 -mfpu=neon -ftree-vectorize -flto=jobserver -ffat-lto-objects -D__VITA__ $(INCLUDE) -lSceLibc_stub -Werror
 
 CC	= arm-dolce-eabi-gcc
-AR	= arm-dolce-eabi-ar
-RANLIB	= arm-dolce-eabi-ranlib
+AR	= arm-dolce-eabi-gcc-ar
+RANLIB	= arm-dolce-eabi-gcc-ranlib
 
 CONFIG_H = include/SDL_config.h
 TARGET  = libSDL.a

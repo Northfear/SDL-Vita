@@ -398,6 +398,15 @@ void PSP2_GetSurfaceRect(SDL_Rect *surfaceRect, SDL_Rect *scaledRect)
 {
 	SDL_Surface *surface = SDL_VideoSurface;
 
+	surfaceRect->x = 0;
+	surfaceRect->y = 0;
+	surfaceRect->w = SCREEN_W;
+	surfaceRect->h = SCREEN_H;
+	scaledRect->x = 0;
+	scaledRect->y = 0;
+	scaledRect->w = SCREEN_W;
+	scaledRect->h = SCREEN_H;
+
 	if (surface != NULL && surface->hwdata != NULL)
 	{
 		surfaceRect->x = 0;
