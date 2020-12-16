@@ -164,7 +164,6 @@ int PSP2_VideoInit(_THIS, SDL_PixelFormat *vformat)
 SDL_Surface *PSP2_SetVideoMode(_THIS, SDL_Surface *current,
 				int width, int height, int bpp, Uint32 flags)
 {
-	// support only 16/24 bits for now
 	switch(bpp)
 	{
 		case 16:
