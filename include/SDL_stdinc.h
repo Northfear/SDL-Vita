@@ -290,11 +290,6 @@ do {						\
 } while(0)
 #endif
 
-#ifdef __VITA__
-void *memcpy_neon(void *destination, const void *source, size_t num);
-#define SDL_memcpy      memcpy_neon
-#endif
-
 /* We can count on memcpy existing on Mac OS X and being well-tuned. */
 #if defined(__MACH__) && defined(__APPLE__)
 #define SDL_memcpy(dst, src, len) memcpy(dst, src, len)

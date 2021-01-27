@@ -694,10 +694,7 @@ void gxm_init_texture_scale(const gxm_texture *texture, float x, float y, float 
 void gxm_start_drawing()
 {
     if(data->drawing)
-    {
-        SDL_SetError("uh-oh, already drawing\n");
         return;
-    }
 
     sceGxmBeginScene(
         data->gxm_context,

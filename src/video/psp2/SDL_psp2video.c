@@ -58,7 +58,7 @@ typedef struct private_hwdata {
 	SDL_Rect dst;
 } private_hwdata;
 
-static int vsync = 1;
+static int vsync = 0;
 
 /* Initialization/Query functions */
 static int PSP2_VideoInit(_THIS, SDL_PixelFormat *vformat);
@@ -296,12 +296,12 @@ static int PSP2_FlipHWSurface(_THIS, SDL_Surface *surface)
 	gxm_start_drawing();
 	gxm_draw_texture(surface->hwdata->texture);
 	gxm_end_drawing();
-/*
+
 	if(vsync == 1)
 	{
 		gxm_wait_rendering_done();
 	}
-*/
+
 	gxm_swap_buffers();
 }
 
