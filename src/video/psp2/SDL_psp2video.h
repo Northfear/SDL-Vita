@@ -31,6 +31,10 @@
 /* Hidden "this" pointer for the video functions */
 #define _THIS	SDL_VideoDevice *this
 
+#define SCREEN_W 960
+#define SCREEN_H 544
+
+void PSP2_GetSurfaceRect(SDL_Rect *surfaceRect, SDL_Rect *scaledRect);
 
 /* Private display data */
 

@@ -36,6 +36,7 @@
 
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/audioout.h>
+#include "malloc.h"
 
 /* The tag name used by DUMMY audio */
 #define PSP2AUD_DRIVER_NAME         "psp2"
