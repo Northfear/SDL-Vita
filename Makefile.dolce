@@ -4,7 +4,7 @@ INCLUDE = -I./include
 CFLAGS  = -Ofast -mcpu=cortex-a9 -mfpu=neon -ftree-vectorize -flto=jobserver -ffat-lto-objects -fgraphite-identity -floop-nest-optimize \
 -D__VITA__ $(INCLUDE) -lSceLibc_stub -Werror \
 -Dmemcpy=memcpy_neon -Dmemset=sceClibMemset -Dmemmove=sceClibMemmove -Dmemcmp=sceClibMemcmp
-LDFLAGS = $(LDFLAGS) $(CFLAGS) -Wl,-O1 -Wl,--sort-common -Wl,-flto
+
 CC	= arm-dolce-eabi-gcc
 AR	= arm-dolce-eabi-gcc-ar
 RANLIB	= arm-dolce-eabi-gcc-ranlib
@@ -34,10 +34,6 @@ SOURCES = \
 
 OBJECTS = $(shell echo $(SOURCES) | sed -e 's,\.c,\.o,g; s,\.S,\.o,g')
 
-#all: $(TARGET)
-#	make -f Makefile.dolce-test clean
-#	make -f Makefile.dolce-test
-
 $(TARGET): $(CONFIG_H) $(OBJECTS)
 	$(AR) crv $@ $^
 	$(RANLIB) $@
@@ -47,7 +43,6 @@ $(CONFIG_H):
 
 clean:
 	rm -f $(TARGET) $(OBJECTS)
-#	make -f Makefile.dolce-test clean
 
 install: $(TARGET)
 	@cp  $(TARGET) $(DOLCESDK)/arm-dolce-eabi/lib

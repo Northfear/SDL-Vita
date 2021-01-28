@@ -27,7 +27,7 @@
 /* Touch functions */
 extern void VITA_InitTouch(void);
 extern void VITA_PollTouch(void);
-void VITA_ConvertTouchXYToSDLXY(Uint16 *sdl_x, Uint16 *sdl_y, Uint16 vita_x, Uint16 vita_y);
+void VITA_ConvertTouchXYToSDLXY(Sint16 *sdl_x, Sint16 *sdl_y, Sint16 vita_x, Sint16 vita_y);
 
 #endif /* _SDL_vitatouch_h */
 

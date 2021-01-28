@@ -42,8 +42,8 @@ void VITA_InitTouch(void)
 
 void VITA_PollTouch(void)
 {
-	Uint16 x;
-	Uint16 y;
+	Sint16 x;
+	Sint16 y;
 	touch_data_old = touch_data;
 
 	sceTouchPeek(SCE_TOUCH_PORT_FRONT, &touch_data, 1);
@@ -103,7 +103,7 @@ void VITA_PollTouch(void)
 	}
 }
 
-void VITA_ConvertTouchXYToSDLXY(Uint16 *sdl_x, Uint16 *sdl_y, Uint16 vita_x, Uint16 vita_y) 
+void VITA_ConvertTouchXYToSDLXY(Sint16 *sdl_x, Sint16 *sdl_y, Sint16 vita_x, Sint16 vita_y) 
 {
 	float x = (vita_x - panelinfo.minDispX) / dispWidth;
 	float y = (vita_y - panelinfo.minDispY) / dispHeight;
