@@ -32,7 +32,6 @@
 #include "SDL_render_vita_gxm_types.h"
 
 void init_orthographic_matrix(float *m, float left, float right, float bottom, float top, float near, float far);
-void *pool_memalign(unsigned int size, unsigned int alignment);
 
 int gxm_init();
 void gxm_finish();

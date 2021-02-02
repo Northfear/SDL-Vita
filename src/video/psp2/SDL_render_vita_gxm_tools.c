@@ -25,13 +25,6 @@
 #include <psp2/gxm.h>
 #include <psp2/types.h>
 #include <psp2/kernel/sysmem.h>
-#include <psp2/gxt.h>
-
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-#include <stdarg.h>
-#include <stdlib.h>
 
 #include "SDL_error.h"
 
@@ -76,18 +69,6 @@ static void patcher_host_free(void *user_data, void *mem)
 {
     (void)user_data;
     SDL_free(mem);
-}
-
-void *pool_memalign(unsigned int size, unsigned int alignment)
-{
-    unsigned int new_index = (data->pool_index + alignment - 1) & ~(alignment - 1);
-    if ((new_index + size) < VITA_GXM_POOL_SIZE) {
-        void *addr = (void *)((unsigned int)data->pool_addr + new_index);
-        data->pool_index = new_index + size;
-        return addr;
-    }
-    SDL_SetError("POOL OVERFLOW\n");
-    return NULL;
 }
 
 static int tex_format_to_bytespp(SceGxmTextureFormat format)
@@ -398,13 +379,13 @@ int gxm_init()
     // all drawing operations where we don't want to use indexing.
     data->linearIndices = (uint16_t *)mem_gpu_alloc(
         SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE,
-        UINT16_MAX*sizeof(uint16_t),
+        4*sizeof(uint16_t),
         sizeof(uint16_t),
         SCE_GXM_MEMORY_ATTRIB_READ,
         &data->linearIndicesUid
     );
 
-    for (uint32_t i=0; i<=UINT16_MAX; ++i)
+    for (uint16_t i=0; i<=4; ++i)
     {
         data->linearIndices[i] = i;
     }
@@ -476,12 +457,12 @@ int gxm_init()
     data->textureWvpParam = (SceGxmProgramParameter *)sceGxmProgramFindParameterByName(textureVertexProgramGxp, "wvp");
 
     // Allocate memory for the memory pool
-    data->pool_addr = mem_gpu_alloc(
+    data->vertices = mem_gpu_alloc(
         SCE_KERNEL_MEMBLOCK_TYPE_USER_RW,
-        VITA_GXM_POOL_SIZE,
-        sizeof(void *),
+        4 * sizeof(texture_vertex),
+        sizeof(texture_vertex),
         SCE_GXM_MEMORY_ATTRIB_READ,
-        &data->poolUid
+        &data->verticesUid
     );
     init_orthographic_matrix(data->ortho_matrix, 0.0f, VITA_GXM_SCREEN_WIDTH, VITA_GXM_SCREEN_HEIGHT, 0.0f, 0.0f, 1.0f);
 
@@ -507,9 +488,6 @@ void gxm_finish()
 
     // wait until display queue is finished before deallocating display buffers
     sceGxmDisplayQueueFinish();
-
-    // clean up display queue
-    mem_gpu_free(data->depthBufferUid);
 
     for (size_t i = 0; i < VITA_GXM_BUFFERS; i++)
     {
@@ -544,8 +522,7 @@ void gxm_finish()
     mem_gpu_free(data->vertexRingBufferUid);
     mem_gpu_free(data->vdmRingBufferUid);
     SDL_free(data->contextParams.hostMem);
-
-    mem_gpu_free(data->poolUid);
+    mem_gpu_free(data->verticesUid);
     // terminate libgxm
     sceGxmTerminate();
 
@@ -655,40 +632,36 @@ gxm_texture* create_gxm_texture(unsigned int w, unsigned int h, SceGxmTextureFor
 
 void gxm_init_texture_scale(const gxm_texture *texture, float x, float y, float x_scale, float y_scale)
 {
-	texture_vertex *vertices = (texture_vertex *)pool_memalign(
-		4 * sizeof(texture_vertex), // 4 vertices
-		sizeof(texture_vertex));
-
 	const float w = x_scale * gxm_texture_get_width(texture);
 	const float h = y_scale * gxm_texture_get_height(texture);
 
-	vertices[0].x = x;
-	vertices[0].y = y;
-	vertices[0].z = +0.5f;
-	vertices[0].u = 0.0f;
-	vertices[0].v = 0.0f;
+	data->vertices[0].x = x;
+	data->vertices[0].y = y;
+	data->vertices[0].z = +0.5f;
+	data->vertices[0].u = 0.0f;
+	data->vertices[0].v = 0.0f;
 
-	vertices[1].x = x + w;
-	vertices[1].y = y;
-	vertices[1].z = +0.5f;
-	vertices[1].u = 1.0f;
-	vertices[1].v = 0.0f;
+	data->vertices[1].x = x + w;
+	data->vertices[1].y = y;
+	data->vertices[1].z = +0.5f;
+	data->vertices[1].u = 1.0f;
+	data->vertices[1].v = 0.0f;
 
-	vertices[2].x = x;
-	vertices[2].y = y + h;
-	vertices[2].z = +0.5f;
-	vertices[2].u = 0.0f;
-	vertices[2].v = 1.0f;
+	data->vertices[2].x = x;
+	data->vertices[2].y = y + h;
+	data->vertices[2].z = +0.5f;
+	data->vertices[2].u = 0.0f;
+	data->vertices[2].v = 1.0f;
 
-	vertices[3].x = x + w;
-	vertices[3].y = y + h;
-	vertices[3].z = +0.5f;
-	vertices[3].u = 1.0f;
-	vertices[3].v = 1.0f;
+	data->vertices[3].x = x + w;
+	data->vertices[3].y = y + h;
+	data->vertices[3].z = +0.5f;
+	data->vertices[3].u = 1.0f;
+	data->vertices[3].v = 1.0f;
 
 	// Set the texture to the TEXUNIT0
 	sceGxmSetFragmentTexture(data->gxm_context, 0, &texture->gxm_tex);
-	sceGxmSetVertexStream(data->gxm_context, 0, vertices);
+	sceGxmSetVertexStream(data->gxm_context, 0, data->vertices);
 }
 
 void gxm_start_drawing()
@@ -742,7 +715,6 @@ void gxm_swap_buffers()
     // update buffer indices
     data->frontBufferIndex = data->backBufferIndex;
     data->backBufferIndex = (data->backBufferIndex + 1) % VITA_GXM_BUFFERS;
-    data->pool_index = 0;
 
     data->drawing = SDL_FALSE;
 }

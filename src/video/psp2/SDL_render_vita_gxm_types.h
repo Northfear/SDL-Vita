@@ -22,8 +22,6 @@
 #ifndef SDL_RENDER_VITA_GXM_TYPES_H
 #define SDL_RENDER_VITA_GXM_TYPES_H
 
-#include "SDL_stdinc.h"
-
 #include <psp2/kernel/processmgr.h>
 #include <psp2/appmgr.h>
 #include <psp2/display.h>
@@ -31,7 +29,6 @@
 #include <psp2/types.h>
 #include <psp2/kernel/sysmem.h>
 
-#include <string.h>
 
 #define VITA_GXM_SCREEN_WIDTH     960
 #define VITA_GXM_SCREEN_HEIGHT    544
@@ -42,7 +39,6 @@
 
 #define VITA_GXM_BUFFERS          3
 #define VITA_GXM_PENDING_SWAPS    2
-#define VITA_GXM_POOL_SIZE        128
 
 
 typedef struct
@@ -95,9 +91,8 @@ typedef struct
     unsigned int backBufferIndex;
     unsigned int frontBufferIndex;
 
-    void* pool_addr;
-    SceUID poolUid;
-    unsigned int pool_index;
+    texture_vertex *vertices;
+    SceUID verticesUid;
 
     float ortho_matrix[4*4];
 
