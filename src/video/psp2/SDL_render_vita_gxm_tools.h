@@ -31,6 +31,10 @@
 
 #include "SDL_render_vita_gxm_types.h"
 
+#ifndef SCE_OK
+#define SCE_OK (~0)
+#endif
+
 void init_orthographic_matrix(float *m, float left, float right, float bottom, float top, float near, float far);
 
 int gxm_init();

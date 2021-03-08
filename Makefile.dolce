@@ -1,9 +1,10 @@
 # Makefile to build the SDL library
 
 INCLUDE = -I./include
-CFLAGS  = -Ofast -mcpu=cortex-a9 -mfpu=neon -ftree-vectorize -flto=jobserver -ffat-lto-objects -fgraphite-identity -floop-nest-optimize \
+CFLAGS  = -Ofast -mcpu=cortex-a9 -mfpu=neon -ftree-vectorize -fgraphite-identity -floop-nest-optimize \
 -D__VITA__ $(INCLUDE) -lSceLibc_stub -Werror \
--Dmemcpy=sceClibMemcpy -Dmemset=sceClibMemset -Dmemmove=sceClibMemmove -Dmemcmp=sceClibMemcmp
+-Dmemcpy=sceClibMemcpy -Dmemset=sceClibMemset -Dmemmove=sceClibMemmove -Dmemcmp=sceClibMemcmp \
+-flto=jobserver -ffat-lto-objects
 
 CC	= arm-dolce-eabi-gcc
 AR	= arm-dolce-eabi-gcc-ar
