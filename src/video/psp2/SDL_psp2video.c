@@ -340,7 +340,7 @@ void SDL_SetVideoModeBilinear(int enable_bilinear)
 			//(first one is minimization filter,
 			//second one is magnification filter)
 			gxm_texture_set_filters(surface->hwdata->texture,
-				SCE_GXM_TEXTURE_FILTER_POINT,
+				SCE_GXM_TEXTURE_FILTER_LINEAR,
 				SCE_GXM_TEXTURE_FILTER_LINEAR);
 		}
 		else
