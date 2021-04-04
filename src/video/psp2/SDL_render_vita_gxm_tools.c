@@ -574,10 +574,6 @@ void* gxm_texture_get_datap(const gxm_texture *texture)
 
 gxm_texture* create_gxm_texture(unsigned int w, unsigned int h, SceGxmTextureFormat format)
 {
-    //crashes otherwise. no idea why tbh
-    if (format == SCE_GXM_COLOR_FORMAT_A8B8G8R8)
-        format = SCE_GXM_TEXTURE_FORMAT_A8B8G8R8;
-
     gxm_texture *texture = SDL_malloc(sizeof(gxm_texture));
     if (!texture)
         return NULL;
