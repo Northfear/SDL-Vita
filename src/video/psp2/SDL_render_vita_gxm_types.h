@@ -66,8 +66,6 @@ typedef struct gxm_texture {
 
 typedef struct
 {
-    SDL_bool      drawing;
-
     VITA_GXM_DisplayData displayData;
 
     SceUID vdmRingBufferUid;

@@ -115,7 +115,7 @@ void VITA_ConvertTouchXYToSDLXY(Sint16 *sdl_x, Sint16 *sdl_y, Sint16 vita_x, Sin
 
 	SDL_Rect surfaceRect;
 	SDL_Rect scaledRect;
-	PSP2_GetSurfaceRect(&surfaceRect, &scaledRect);
+	SDL_PSP2_GetSurfaceRect(&surfaceRect, &scaledRect);
 
 	// translate to game coordinates
 	x = (SCREEN_W * x - scaledRect.x) * ((float)surfaceRect.w / scaledRect.w);

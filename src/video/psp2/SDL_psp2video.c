@@ -59,6 +59,7 @@ typedef struct private_hwdata {
 } private_hwdata;
 
 static int vsync = 1;
+static int flip_wait_rendering = 1;
 
 /* Initialization/Query functions */
 static int PSP2_VideoInit(_THIS, SDL_PixelFormat *vformat);
@@ -66,6 +67,7 @@ static SDL_Rect **PSP2_ListModes(_THIS, SDL_PixelFormat *format, Uint32 flags);
 static SDL_Surface *PSP2_SetVideoMode(_THIS, SDL_Surface *current, int width, int height, int bpp, Uint32 flags);
 static int PSP2_SetColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors);
 static void PSP2_VideoQuit(_THIS);
+static void PSP2_DeleteDevice(SDL_VideoDevice *device);
 
 /* Hardware surface functions */
 static int PSP2_FlipHWSurface(_THIS, SDL_Surface *surface);
@@ -81,12 +83,6 @@ static void PSP2_UpdateRects(_THIS, int numrects, SDL_Rect *rects);
 static int PSP2_Available(void)
 {
 	return 1;
-}
-
-static void PSP2_DeleteDevice(SDL_VideoDevice *device)
-{
-	SDL_free(device->hidden);
-	SDL_free(device);
 }
 
 static SDL_VideoDevice *PSP2_CreateDevice(int devindex)
@@ -139,6 +135,17 @@ static SDL_VideoDevice *PSP2_CreateDevice(int devindex)
 	return device;
 }
 
+VideoBootStrap PSP2_bootstrap = {
+	PSP2VID_DRIVER_NAME, "SDL psp2 video driver",
+	PSP2_Available, PSP2_CreateDevice
+};
+
+static void PSP2_DeleteDevice(SDL_VideoDevice *device)
+{
+	SDL_free(device->hidden);
+	SDL_free(device);
+}
+
 int PSP2_VideoInit(_THIS, SDL_PixelFormat *vformat)
 {
 	if (gxm_init() != 0)
@@ -159,6 +166,29 @@ int PSP2_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	VITA_InitTouch();
 
 	return(0);
+}
+
+SDL_Rect **PSP2_ListModes(_THIS, SDL_PixelFormat *format, Uint32 flags)
+{
+	static SDL_Rect PSP2_Rects[] = {
+		{0, 0, 960, 544},
+	};
+	static SDL_Rect *PSP2_modes[] = {
+		&PSP2_Rects[0],
+		NULL
+	};
+	SDL_Rect **modes = PSP2_modes;
+
+	switch(format->BitsPerPixel)
+	{
+		case 16:
+		case 24:
+		case 32:
+		return modes;
+
+		default:
+		return (SDL_Rect **) -1;
+	}
 }
 
 SDL_Surface *PSP2_SetVideoMode(_THIS, SDL_Surface *current,
@@ -200,32 +230,14 @@ SDL_Surface *PSP2_SetVideoMode(_THIS, SDL_Surface *current,
 	if(current->hwdata == NULL)
 	{
 		PSP2_AllocHWSurface(this, current);
+		gxm_init_texture_scale(
+			current->hwdata->texture,
+			current->hwdata->dst.x, current->hwdata->dst.y,
+			(float)current->hwdata->dst.w/(float)current->w,
+			(float)current->hwdata->dst.h/(float)current->h);
 	}
 
 	return(current);
-}
-
-SDL_Rect **PSP2_ListModes(_THIS, SDL_PixelFormat *format, Uint32 flags)
-{
-	static SDL_Rect PSP2_Rects[] = {
-		{0, 0, 960, 544},
-	};
-	static SDL_Rect *PSP2_modes[] = {
-		&PSP2_Rects[0],
-		NULL
-	};
-	SDL_Rect **modes = PSP2_modes;
-
-	switch(format->BitsPerPixel)
-	{
-		case 16:
-		case 24:
-		case 32:
-		return modes;
-
-		default:
-		return (SDL_Rect **) -1;
-	}
 }
 
 static int PSP2_AllocHWSurface(_THIS, SDL_Surface *surface)
@@ -268,13 +280,10 @@ static int PSP2_AllocHWSurface(_THIS, SDL_Surface *surface)
 
 	surface->pixels = gxm_texture_get_datap(surface->hwdata->texture);
 	surface->pitch = gxm_texture_get_stride(surface->hwdata->texture);
-	surface->flags |= SDL_HWSURFACE;
-
-	gxm_init_texture_scale(
-		surface->hwdata->texture,
-		surface->hwdata->dst.x, surface->hwdata->dst.y,
-		(float)surface->hwdata->dst.w/(float)surface->w,
-		(float)surface->hwdata->dst.h/(float)surface->h);
+	// Don't force SDL_HWSURFACE. Screen surface still works as SDL_SWSURFACE (but may require sceGxmFinish on flip)
+	// Mixing SDL_HWSURFACE and SDL_SWSURFACE drops fps by 10% or so
+	// Not sure if there's even a point of having anything as SDL_HWSURFACE
+	//surface->flags |= SDL_HWSURFACE;
 
 	return(0);
 }
@@ -291,23 +300,50 @@ static void PSP2_FreeHWSurface(_THIS, SDL_Surface *surface)
 	}
 }
 
+static int PSP2_LockHWSurface(_THIS, SDL_Surface *surface)
+{
+	return(0);
+}
+
+static void PSP2_UnlockHWSurface(_THIS, SDL_Surface *surface)
+{
+	return;
+}
+
 static int PSP2_FlipHWSurface(_THIS, SDL_Surface *surface)
 {
 	gxm_start_drawing();
 	gxm_draw_texture(surface->hwdata->texture);
 	gxm_end_drawing();
 
-    //just slows everything down
-	//if(vsync == 1)
-	//{
-	//	gxm_wait_rendering_done();
-	//}
+	if(flip_wait_rendering == 1)
+	{
+		gxm_wait_rendering_done();
+	}
 
 	gxm_swap_buffers();
 }
 
+static void PSP2_UpdateRects(_THIS, int numrects, SDL_Rect *rects)
+{
+}
+
+int PSP2_SetColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors)
+{
+	return(1);
+}
+
+void PSP2_VideoQuit(_THIS)
+{
+	if (this->screen->hwdata != NULL)
+	{
+		PSP2_FreeHWSurface(this, this->screen);
+	}
+	gxm_finish();
+}
+
 // custom psp2 function for centering/scaling main screen surface (texture)
-void SDL_SetVideoModeScaling(int x, int y, float w, float h)
+void SDL_PSP2_SetVideoModeScaling(int x, int y, float w, float h)
 {
 	SDL_Surface *surface = SDL_VideoSurface;
 
@@ -327,7 +363,7 @@ void SDL_SetVideoModeScaling(int x, int y, float w, float h)
 }
 
 // custom psp2 function for setting the texture filter to nearest or bilinear
-void SDL_SetVideoModeBilinear(int enable_bilinear)
+void SDL_PSP2_SetVideoModeBilinear(int enable_bilinear)
 {
 	SDL_Surface *surface = SDL_VideoSurface;
 	
@@ -353,48 +389,26 @@ void SDL_SetVideoModeBilinear(int enable_bilinear)
 }	
 
 // custom psp2 function for vsync
-void SDL_SetVideoModeSync(int enable_vsync)
+void SDL_PSP2_SetVideoModeSync(int enable_vsync)
 {
 	vsync = enable_vsync;
 	gxm_set_vblank_wait(vsync);
 }
 
-
-static int PSP2_LockHWSurface(_THIS, SDL_Surface *surface)
+// custom psp2 function for doing sceGxmFinish on Flip (may be required in case of visual bugs)
+void SDL_PSP2_SetFlipWaitRendering(int flip_wait)
 {
-	return(0);
+	flip_wait_rendering = flip_wait;
 }
 
-static void PSP2_UnlockHWSurface(_THIS, SDL_Surface *surface)
+// custom psp2 function for setting mem type for new hw texture allocations
+void SDL_PSP2_SetTextureAllocMemblockType(SceKernelMemBlockType type)
 {
-	return;
+	gxm_texture_set_alloc_memblock_type(type);
 }
 
-static void PSP2_UpdateRects(_THIS, int numrects, SDL_Rect *rects)
-{
-
-}
-
-int PSP2_SetColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors)
-{
-	return(1);
-}
-
-void PSP2_VideoQuit(_THIS)
-{
-	if (this->screen->hwdata != NULL)
-	{
-		PSP2_FreeHWSurface(this, this->screen);
-	}
-	gxm_finish();
-}
-
-VideoBootStrap PSP2_bootstrap = {
-	PSP2VID_DRIVER_NAME, "SDL psp2 video driver",
-	PSP2_Available, PSP2_CreateDevice
-};
-
-void PSP2_GetSurfaceRect(SDL_Rect *surfaceRect, SDL_Rect *scaledRect)
+// custom psp2 function that returns main surface rect and scaled rect (used in touch emulation)
+void SDL_PSP2_GetSurfaceRect(SDL_Rect *surfaceRect, SDL_Rect *scaledRect)
 {
 	SDL_Surface *surface = SDL_VideoSurface;
 

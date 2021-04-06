@@ -34,7 +34,7 @@
 #define SCREEN_W 960
 #define SCREEN_H 544
 
-void PSP2_GetSurfaceRect(SDL_Rect *surfaceRect, SDL_Rect *scaledRect);
+void SDL_PSP2_GetSurfaceRect(SDL_Rect *surfaceRect, SDL_Rect *scaledRect);
 
 /* Private display data */
 

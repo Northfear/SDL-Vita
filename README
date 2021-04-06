@@ -1,13 +1,3 @@
-Quickly butchered together PS Vita gxm port of SDL 1.2 with 1.2.16 version bump and some minor fixes and optimizations:
-- ~10% faster than vita2d version (at least for me)
-- working 32 bpp
-- front touchpad support (mouse emulation. should work with scaled/centered images too)
-
-Thanks to:
-- isage for SDL2 gxm port (https://github.com/isage/SDL-mirror)
-- xerpi for libvita2d and xerpi, Cpasjuste and rsn8887 for original PS Vita SDL port
-
-
                          Simple DirectMedia Layer
 
                                   (SDL)

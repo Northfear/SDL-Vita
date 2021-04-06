@@ -30,16 +30,19 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <psp2/kernel/sysmem.h>
 
 #define __vita__ 1
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-// custom ps vita hardware scaling
-void SDL_SetVideoModeScaling(int x, int y, float w, float h);
-void SDL_SetVideoModeBilinear(int enable_bilinear);
-void SDL_SetVideoModeSync(int enable_vsync);
+// custom ps vita functions
+void SDL_PSP2_SetVideoModeScaling(int x, int y, float w, float h);
+void SDL_PSP2_SetVideoModeBilinear(int enable_bilinear);
+void SDL_PSP2_SetVideoModeSync(int enable_vsync);
+void SDL_PSP2_SetFlipWaitRendering(int flip_wait);
+void SDL_PSP2_SetTextureAllocMemblockType(SceKernelMemBlockType type);
 #ifdef __cplusplus
 }
 #endif

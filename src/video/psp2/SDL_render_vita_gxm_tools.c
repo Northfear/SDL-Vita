@@ -33,6 +33,7 @@
 #include "SDL_render_vita_gxm_shaders.h"
 
 VITA_GXM_RenderData *data;
+static SceKernelMemBlockType textureMemBlockType = SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW;
 
 
 void init_orthographic_matrix(float *m, float left, float right, float bottom, float top, float near, float far)
@@ -572,6 +573,11 @@ void* gxm_texture_get_datap(const gxm_texture *texture)
     return sceGxmTextureGetData(&texture->gxm_tex);
 }
 
+void gxm_texture_set_alloc_memblock_type(SceKernelMemBlockType type)
+{
+	textureMemBlockType = (type == 0) ? SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW : type;
+}
+
 gxm_texture* create_gxm_texture(unsigned int w, unsigned int h, SceGxmTextureFormat format)
 {
     gxm_texture *texture = SDL_malloc(sizeof(gxm_texture));
@@ -582,7 +588,7 @@ gxm_texture* create_gxm_texture(unsigned int w, unsigned int h, SceGxmTextureFor
 
     /* Allocate a GPU buffer for the texture */
     void *texture_data = mem_gpu_alloc(
-        SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW,
+        textureMemBlockType,
         tex_size,
         SCE_GXM_TEXTURE_ALIGNMENT,
         SCE_GXM_MEMORY_ATTRIB_READ | SCE_GXM_MEMORY_ATTRIB_WRITE,
@@ -662,9 +668,6 @@ void gxm_init_texture_scale(const gxm_texture *texture, float x, float y, float 
 
 void gxm_start_drawing()
 {
-    if(data->drawing)
-        return;
-
     sceGxmBeginScene(
         data->gxm_context,
         0,
@@ -675,8 +678,6 @@ void gxm_start_drawing()
         &data->displaySurface[data->backBufferIndex],
         &data->depthSurface
     );
-
-    data->drawing = SDL_TRUE;
 }
 
 void gxm_draw_texture(const gxm_texture *texture)
@@ -695,7 +696,6 @@ void gxm_wait_rendering_done()
 void gxm_end_drawing()
 {
 	sceGxmEndScene(data->gxm_context, NULL, NULL);
-	data->drawing = SDL_FALSE;
 }
 
 void gxm_swap_buffers()
@@ -711,8 +711,6 @@ void gxm_swap_buffers()
     // update buffer indices
     data->frontBufferIndex = data->backBufferIndex;
     data->backBufferIndex = (data->backBufferIndex + 1) % VITA_GXM_BUFFERS;
-
-    data->drawing = SDL_FALSE;
 }
 
 void gxm_texture_set_filters(gxm_texture *texture, SceGxmTextureFilter min_filter, SceGxmTextureFilter mag_filter)
