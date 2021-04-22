@@ -1,3 +1,5 @@
+# Further updates of SDL 1.2 GXM Vita port can be found [HERE](https://github.com/Northfear/SDL-1.2-vita) (I've rebased it on official GitHub SDL repo)
+
 # SDL 1.2 GXM port for PS Vita
 
 ### Features
